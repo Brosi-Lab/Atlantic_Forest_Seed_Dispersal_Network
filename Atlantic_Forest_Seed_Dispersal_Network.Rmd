@@ -1,0 +1,1127 @@
+---
+title: "Consequences of losing endangered frugivores for a tropical seed dispersal network"
+author: "Therese Lamperty and Berry Brosi"
+date: "started 14 March 2022; most recent edits `r format(Sys.time(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float: true
+    number_sections: true
+    code_folding: hide
+    theme: cosmo
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Overview
+
+In this analysis, our goal was to investigate the roles of endangered frugivores in a diverse tropical forest seed dispersal network and the potential consequences of their loss for the network. 
+
+We used a publicly available dataset from Bello et al 2017. It is a collation of multiple studies over 50+ years conducted across the Atlantic Forest biome.
+
+In our analysis, we:
+
+1. Assessed the network degree of endangered frugivores (all frugivores at a greater risk of extinction than those in the 'Least Concern' IUCN category) compared to non-endangered frugivores (those in Least Concern category). We repeat this with frugivores with declining global populations compared to frugivores with increasing global populations.
+
+  1.1 This was repeated at the ecoregion scale in 4 ecoregions (Cerrado, Serra do Mar, Araucaria, mata caducifolia)
+  
+2. Simulated frugivore extinctions predicted by endangerment status and used a topolcogical co-extinction model to analyze consequences on network robustness through secondary extinctions. Further, we evaluated if the effects of removing species according to extinction risk differ from removing species in decreasing order of degree and body size, and also a random removal scenario. 
+
+  2.1 This was repeated at the ecoregion scale
+  
+3. Assessed the degree to which specialist trees rely on endangered frugivores
+
+
+# Package Loading and Management
+
+## Package loading
+
+```{r create package list, message = F, results = F, warning = F}
+# Create package list
+Packages <- c("tidyverse", "knitr", "car", "bipartite", "MASS", "ggplot2", "lme4", "boot", "gridExtra", "lattice", "gginnards", "viridis", "viridisLite", "raster", "sp", "rgdal", "cowplot", "AER", "pscl", "degreenet", "DHARMa", "broom.mixed", "grid", "ggpubr")
+
+# Load package
+lapply(Packages, library, character.only = TRUE)
+
+# Clean 
+rm(Packages)
+
+```
+
+**Packages used:**
+
+
+# Data
+
+## data import
+
+
+* 1 data set to import (call it "master.df"):
+* 'Atlantic frugivory: a plant-frugivore interaction data set for the Atlantic Forest' (Bello et al 2017)
+    + https://doi.org/10.1002/ecy.1818
+    + a record of 8320 frugivory interactions
+
+* 1 data set not needed to import until later:
+* In data-in, there is also a folder veg_1992_ibge - this is the geographical information used to isolate and subset the ecoregions based on the coordinates provided per observation record in the Bello et al data set
+    + That data was downloaded from the Brazilian Ministry of the Environment and Instituto Brasileiro de Geografia e Estatistica (IBGE 1993).
+    + https://www.ibge.gov.br/en/home-eng.html
+
+```{r data import}
+master.df <- read.csv("data-in/ATLANTIC_frugivory_full_og.csv")
+```
+
+
+## Data formatting
+
+After initial data formatting and cleaning, there are 6 data frames used in various steps in the analysis: 
+
+* observations (all interactions recorded, includes duplicate interactions)
+* binary interaction matrix created from the observations and used in network analysis
+* a data set with all metrics (e.g. degree, body mass) for every frugivore species
+    + this is called frugivore metadata (I use 'md' for metadata in the code)
+* a data set with all metrics (e.g. degree) for every plant species
+    + aka plant metadata
+* a data set with a record of each unique interaction that occurs in the network with accompanying plant and frugivore degree and frugivore IUCN status
+    + aka interaction metadata
+    
+X 5 because analyses are repeated for the biome and four ecoregions
+
+### miscellaneous data formatting
+
+this includes:
+
+* merge genus and species by underscore
+* fix trailing spaces and typos in spp names
+* add missing body mass data
+* create 'lower' and 'higher' risk endangerment category for frugivores
+* remove species that are data deficient or not evaluated by IUCN
+
+
+```{r initial data cleaning and formatting}
+
+# Get rid of spaces in between genus and species for frugivores and plants:
+
+master.df$Frugivore_Species <- sub(" ", "_", master.df$Frugivore_Species)
+master.df$Plant_Species <- sub(" ", "_", master.df$Plant_Species)
+
+# Ortalis_guttata has a trailing space, get rid of it:
+master.df <- master.df %>%
+  mutate(Frugivore_Species = ifelse(Frugivore_Species == "Ortalis_guttata ", "Ortalis_guttata", Frugivore_Species))
+
+# Dataset has some species without body mass data
+# Based on web searches for missing body mass values, I could manually add these below:
+# conopias trivirgatus flycatcher = approx. 14 g
+# dermanura cinerea = 18 g
+# Hsunycteris_thomasi = 15 g
+# Ortalis_guttata = 400 g
+# Salvator_merianae = 2500-4535 g
+# Tropidurus_hispidus = 3000g
+# Xenohyla_truncata = 8 g
+# Xolmis_velatus = 30 g
+
+master.df <- master.df %>%
+  mutate(Frug_Body_Mass= ifelse(Frugivore_Species == "Conopias_trivirgatus", "14", Frug_Body_Mass)) %>%
+  mutate(Frug_Body_Mass= ifelse(Frugivore_Species == "Dermanura_cinerea", "18", Frug_Body_Mass)) %>%
+  mutate(Frug_Body_Mass= ifelse(Frugivore_Species == "Hsunycteris_thomasi", "15", Frug_Body_Mass)) %>%
+  mutate(Frug_Body_Mass= ifelse(Frugivore_Species == "Ortalis_guttata", "400", Frug_Body_Mass)) %>%
+  mutate(Frug_Body_Mass= ifelse(Frugivore_Species == "Salvator_merianae", "3000", Frug_Body_Mass)) %>%
+  mutate(Frug_Body_Mass= ifelse(Frugivore_Species == "Tropidurus_hispidus", "3000", Frug_Body_Mass)) %>%
+  mutate(Frug_Body_Mass= ifelse(Frugivore_Species == "Xenohyla_truncata", "8", Frug_Body_Mass)) %>%
+  mutate(Frug_Body_Mass= ifelse(Frugivore_Species == "Xolmis_velatus", "30", Frug_Body_Mass))
+
+# If NOT manually adding the missing body mass values by running above code w/mutate, go ahead and remove those frugivores:
+
+# master.df <- master.df %>% filter(!is.na(Frug_Body_Mass))
+
+# Create extra column for broader endangerment grouping: 'lower risk' or 'higher risk' designation. Anything labeled as Least Concern (LC) by IUCN = lower_risk, anything the IUCN labels as vulnerable (VU), Near Threatened (NT), Endangered (EN), or Critically Endangered (CR) = higher_risk
+
+# note to self - rename this column bc it's confusing AF right now
+
+master.df$Frug_IUCN_Original<-master.df$Frug_IUCN
+
+# Remove data deficient and not evaluated species from removal master.df and from matrix
+
+master.df <- master.df %>%
+  filter(Frug_IUCN != "DD") %>%
+  filter(Frug_IUCN != "NE") %>%
+  filter(!is.na(Frug_IUCN))
+
+# Mutate abbreviated IUCN status to create 2 broad categories of higher risk and lower risk
+
+master.df <- master.df %>%
+  mutate(Frug_IUCN = ifelse(Frug_IUCN == "LC", "lower_risk", "higher_risk"))
+unique(master.df$Frug_IUCN)
+
+# Fix inconsistency with population trend capitalization
+# Make 'Stable' populations all w/capital S:
+master.df <- master.df %>%
+  mutate(Frug_Population_Trend = ifelse(Frug_Population_Trend == "stable", "Stable", Frug_Population_Trend))
+
+```
+
+### create the biome frugivore metadata
+Just pulling out info for each species that occurs in the network and coupling it with relevant species info
+
+```{r data formatting continued: create frugivore and plant metadata}
+# just want 1 row of data per unique frugivore, and these are the columns I want:
+biome_frug_md <- master.df %>%
+  distinct(Frugivore_Species, .keep_all = TRUE) %>%
+  dplyr::select(Frugivore_Species, Frug_Class, Frug_Order, Frug_Family, Frug_Genus, Frug_Epitetus, Frug_Group, Frug_Body_Mass, Frug_Mean_Gape_Size, Frug_IUCN, Frug_IUCN_Original, Frug_Population_Trend)
+
+# also make body mass numeric
+biome_frug_md$Frug_Body_Mass<-as.numeric(biome_frug_md$Frug_Body_Mass)
+
+#plants:
+biome_plant_md <- master.df %>%
+  distinct(Plant_Species)
+
+```
+
+### create biome interaction matrix
+Make binary (0s and 1s) network from cleaned/formatted observation data frame. Also make interaction metadata to add relevant species info to later
+
+```{r data formatting continued: create interaction matrix and interaction metatdata for biome}
+
+# create binary interaction matrix
+
+df.EL <- master.df # make an edge list
+
+df.EL$intxn <- paste(df.EL$Frugivore_Species, df.EL$Plant_Species, sep = "//") # pull out pairs of interacting spp
+
+# head(df.EL$intxn) # should have a column of each interaction name
+
+df.EL <- df.EL %>% # I only need the edge list info
+  dplyr::select(Plant_Species, Frugivore_Species, intxn)
+
+# interaction matrix creation function (Beth Morrison), works as weighted or binary:
+el.to.imat <- function(edgelist) {
+  
+  edgelist$intxn = paste(edgelist[ ,1], edgelist[ ,2], sep = "//") # plants (or lower order species should be in the first column)
+  
+  edgelist$freq = rep(1, nrow(edgelist))
+  
+  edgelist.2 = aggregate(edgelist$freq, by = list(edgelist$intxn), FUN = sum)
+  
+  colnames(edgelist.2) = c('intxn', 'freq')
+  
+  edgelist.split = do.call(rbind, strsplit(edgelist.2$intxn, "//"))
+  
+  w.edgelist = data.frame(low.spp = edgelist.split[ ,1], high.spp = edgelist.split[ ,2], freq = edgelist.2$freq)
+  
+  intxn.mat = spread(w.edgelist, key = "high.spp", value = "freq")
+  
+  intxn.mat[is.na(intxn.mat)] = 0
+  rownames(intxn.mat) = intxn.mat[ ,1]
+  intxn.mat = intxn.mat[ ,-1]
+  
+  return(list(w.edgelist, intxn.mat)) # will return a list; first element is the weighted edge, second element is the matrix
+  # sadly, we can't actually use this data as weighted
+  
+}
+
+el.info <- el.to.imat(df.EL)
+
+i.mat <- el.info[[2]] # store the interaction matrix, it's weighted right now
+
+i.mat[i.mat > 0] <- 1 # change interaction matrix to only 1's and 0's
+
+# head(el.info[[2]]) # make sure it looks ok
+
+biome.mat <- i.mat # copy and rename
+
+# Note to self: don't copy matrix, change name throughout for consistency
+# Note to self: add something to name of interaction_md, mat.og, and frugivore_md to indicate biome scale
+# Note to self: rename df with 'master.df'
+
+# make interaction metadata
+biome_interaction_md <- unique(df.EL[c("Frugivore_Species","Plant_Species")])
+
+# clean
+rm(df.EL, el.info, i.mat)
+
+```
+
+### compute degree for frugivore and plant species at biome scale
+Use `bipartite` specieslevel function to get degree for each species and add to metadata frames
+
+```{r compute species degrees and add to metadata}
+
+# Compute degree for frugivores
+
+Frugivore_degree <- specieslevel(biome.mat, level = "higher", index = "degree")
+
+Frugivore_degree <- Frugivore_degree %>%
+  tibble::rownames_to_column("Frugivore_Species") #get it set up to join to metadata
+
+names(Frugivore_degree)[2] <-"Frugivore_degree" #rename
+
+ biome_frug_md<- merge(Frugivore_degree, biome_frug_md, by = "Frugivore_Species") #add degree to frugivore metadata
+
+#------------------------------------------------#
+
+# Compute degree for plants
+Plant_degree <- specieslevel(biome.mat, level = "lower", index = "degree")
+
+Plant_degree <- Plant_degree %>%
+  tibble::rownames_to_column("Plant_Species") #get it set up to join df
+
+names(Plant_degree)[2] <-"Plant_degree" #rename
+
+# add to plant md
+
+biome_plant_md <- merge(biome_plant_md, Plant_degree, by = "Plant_Species") #add degree to df
+
+#------------------------------------------------#
+
+# Also add degree for plants and frugivores to the dataframe with each unique interaction from the network for later analysis
+
+biome_interaction_md <-merge(biome_interaction_md, Plant_degree, by = "Plant_Species")
+
+biome_interaction_md <-merge(biome_interaction_md, Frugivore_degree, by = "Frugivore_Species")
+
+# Next, add the iucn categories (the specific ones) and the broader groups of higher risk and lower risk frugivores to the interaction_md df
+
+temp <- biome_frug_md %>%
+  dplyr::select(Frugivore_Species, Frug_IUCN, Frug_IUCN_Original, Frug_Population_Trend)
+
+biome_interaction_md<-merge(biome_interaction_md, temp, by = "Frugivore_Species")
+
+rm(temp, Plant_degree, Frugivore_degree)
+
+```
+
+### pull out ecoregions
+There are four regions covered by Bello et al data set that have a decent number of frugivory observations recorded: Cerrado, Floresta Atlantica, Mata Caducifolia, and Araucaria.
+
+I used shape files of Brazil's vegetation from data available online through Brazil's Ministry of the Environment to determine ecoregion geographical limits and to extract the data from Bello et al that was within each region. 
+
+We decided it is not problematic to use this 1992 vegetation data since the Atlantic forest interaction dataset itself was recorded from the 1960's through 2016 (and the ecoregions shouldn't have changed). 
+
+Within Bello et al's dataset, there are a LOT of studies (maybe 30%) that actually did not have lat/long coordinates for me to reference, but I do have the names of the studies from which all data came from and so I can go and look up where exactly the studies took place to appropriately assign them to a given ecoregion if we decide that's worth it.
+
+```{r match observation coordinates with ecoregion data, message = F, results = F, warning = F}
+
+# not all sites had geographic locations, get rid of those
+df.only.with.coords = master.df %>%
+  filter(!is.na(Latitude)) %>%
+  filter(!is.na(Longitude)) %>%
+  mutate(longlat = paste(Longitude, Latitude, sep =","))
+# this just eliminated 37.5% of my observations
+# now have 5115 obs
+
+# start a new data set, just get unique lat/long coordinates, this is a unique identifier
+sites = as.data.frame(levels(as.factor(df.only.with.coords$longlat)))
+
+sites = sites %>%
+  rename(longlat = names(sites)) %>%
+  mutate(longlat2 = longlat) %>%
+  separate(longlat, c("long", "lat"), ",") %>%
+  mutate(long = as.numeric(long)) %>%
+  mutate(lat = as.numeric(lat))
+
+veg = readOGR("data-in/veg_1992_ibge/brazilveg.shp")
+
+# creating a data frame for the spatial data (point file instead of shape file)
+
+sites2 <- SpatialPointsDataFrame(coords = sites[,c(1,2)], data = sites,
+                               proj4string = CRS("+proj=longlat +ellps=GRS67 +towgs84=0,0,0"))
+
+# plot all points and see what vegetation looks like
+
+# plot(sites2)
+
+# plot(veg)
+
+test = over(sites2,veg) # retrieve veg info for each point in sites2
+
+# lines up with forest type column?
+
+test = test %>%
+  cbind(sites) %>%
+  filter(!is.na(GID)) # gets rid of points in ocean...
+
+data2 = df.only.with.coords %>% filter(longlat %in% test$longlat2) #also gets rid of ocean points in the original data frame
+
+# now my data frame is down to 4308 observations
+
+# levels(as.factor(test$TIPO))
+# has all ecoregions I want
+
+# rename w/something more descriptive
+ecoregion.info <- test
+df.only.with.coords<-data2
+
+# join ecoregion.info and my parred down obs df by longlat (df.only.with.coords) and longlat2 (ecoregion.info) - should end up with a 4308 by 47 df
+ecoregion.info$longlat <- ecoregion.info$longlat2
+ER.df <- left_join(df.only.with.coords, ecoregion.info, "longlat")
+
+# 13 observations in the Bello et al data have coordinates that seem incorrect - they are for points in the water. Remove those:
+ER.df <- ER.df %>% filter(!is.na(TIPO))
+
+rm(sites, sites2, df.only.with.coords, test, data2, veg, ecoregion.info)
+
+```
+
+### Summarize the extent to which networks per ecoregion have been sampled
+How many observations do we have per ecoregion ('TIPO')?
+
+```{r summarize extent to which networks per ecoregion have been sampled}
+ER.df %>%
+  group_by(TIPO) %>%
+  summarise(n())
+```
+
+### Isolate the ecoregions with best coverage
+
+For most sampled, these are the top 4: Atividades Agricolas, Cerrado, Floresta Atlantica, Mata Caducifolia
+
+Looked over what the TIPOS correspond to (Google Earth, image and lit search, etc). 
+Atividades Agricolas --> tropical savanna forest mosaic, not cerrado though, Ombrophylous forest, araucaria (this is what Bello calls this ecoregion), some parts seasonal
+Floresta Atlantica --> coastal forest
+Cerrado --> tropical savanna
+Mata Caducifolia --> deciduous tropical forest
+
+```{r subset ecoregions}
+
+# 1. Atividades Agricolas
+# rename
+ER.df <- ER.df %>%
+  mutate(TIPO = ifelse(TIPO == "Atividades Agricolas", "Araucaria", TIPO))
+# subset
+araucaria.df <- ER.df %>%
+  filter(TIPO == "Araucaria")
+
+# 2. Cerrado
+cerrado.df <- ER.df %>%
+  filter(TIPO == "Cerrado")
+
+# 3. Floresta Atlantica
+# Note to self: this is Serra do Mar and I need to fix this throughout
+FlorestaAtlantica.df <- ER.df %>%
+  filter(TIPO == "Floresta Atlantica")
+
+# 4. Mata Caducifolia
+MataCaducifolia.df <- ER.df %>%
+  filter(TIPO == "Mata Caducifolia")
+
+```
+
+### create ecoregion frugivore metadata
+
+similar to above with the biome-scale data, just pulling out info for each frugivore
+
+```{r make frugivore and plant metadata}
+
+# Frugivore metadata creation per ecoregion:
+
+araucaria_frug_md <- araucaria.df %>%
+  distinct(Frugivore_Species, .keep_all = TRUE)
+
+cerrado_frug_md <- cerrado.df %>%
+  distinct(Frugivore_Species, .keep_all = TRUE)
+
+floresta.atlantica_frug_md <- FlorestaAtlantica.df %>%
+  distinct(Frugivore_Species, .keep_all = TRUE)
+
+mata.caducifolia_frug_md <- MataCaducifolia.df %>%
+  distinct(Frugivore_Species, .keep_all = TRUE)
+
+#---------------------------------------------------#
+
+# Plant metadata creation per ecoregion:
+
+araucaria_plant_md <- araucaria.df %>%
+  distinct(Plant_Species, .keep_all = TRUE)
+
+cerrado_plant_md <- cerrado.df %>%
+  distinct(Plant_Species, .keep_all = TRUE)
+
+floresta.atlantica_plant_md <- FlorestaAtlantica.df %>%
+  distinct(Plant_Species, .keep_all = TRUE)
+
+mata.caducifolia_plant_md <- MataCaducifolia.df %>%
+  distinct(Plant_Species, .keep_all = TRUE)
+```
+
+### create ecoregion interaction matrices and interaction metadata
+
+similar to above with the biome data, creating binary interaction matrices for each ecoregion
+
+```{r make interaction matrices for each ecoregion}
+# 1. Araucaria
+
+df.EL <- araucaria.df #make an edge list
+
+df.EL$intxn <- paste(df.EL$Frugivore_Species, df.EL$Plant_Species, sep = "//") #pull out pairs of interacting spp
+
+# head(df.EL$intxn) 
+
+df.EL <- df.EL %>% # I only need the edge list info
+  dplyr::select(Plant_Species, Frugivore_Species, intxn)
+
+el.info <- el.to.imat(df.EL)
+
+# head(el.info[[1]]) # the weighted edge list
+
+i.mat <- el.info[[2]] # store the interaction matrix, it's weighted right now
+
+i.mat[i.mat > 0] <- 1 # change interaction matrix to only 1's and 0's
+
+#head(el.info[[2]]) # make sure it looks ok
+
+mat.araucaria <- i.mat # save under unique name
+
+# make interaction metadata
+interaction_md.AR <- unique(df.EL[c("Frugivore_Species","Plant_Species")])
+
+#------------------------------------------------#
+
+# 2. Cerrado
+
+df.EL <- cerrado.df #make an edge list
+
+df.EL$intxn <- paste(df.EL$Frugivore_Species, df.EL$Plant_Species, sep = "//") #pull out pairs of interacting spp
+
+#head(df.EL$intxn) # now we have a column of each interaction name
+
+df.EL <- df.EL %>% # I only need the edge list info
+  dplyr::select(Plant_Species, Frugivore_Species, intxn)
+
+el.info <- el.to.imat(df.EL)
+
+#head(el.info[[1]]) # the weighted edge list
+
+i.mat <- el.info[[2]] # store the interaction matrix, it's weighted right now
+
+i.mat[i.mat > 0] <- 1 # change interaction matrix to only 1's and 0's
+
+#head(el.info[[2]]) # make sure it looks ok
+
+mat.cerrado <- i.mat #copy matrix with unique name
+
+# make interaction md:
+
+interaction_md.CR <- unique(df.EL[c("Frugivore_Species","Plant_Species")])
+
+#------------------------------------------------#
+
+#3. Floresta Atlantica
+
+df.EL <- FlorestaAtlantica.df #make an edge list
+
+df.EL$intxn <- paste(df.EL$Frugivore_Species, df.EL$Plant_Species, sep = "//") #pull out pairs of interacting spp
+
+#head(df.EL$intxn) # now we have a column of each interaction name
+
+df.EL <- df.EL %>% # I only need the edge list info
+  dplyr::select(Plant_Species, Frugivore_Species, intxn)
+
+el.info <- el.to.imat(df.EL)
+
+#head(el.info[[1]]) # the weighted edge list
+
+i.mat <- el.info[[2]] # store the interaction matrix, it's weighted right now
+
+i.mat[i.mat > 0] <- 1 # change interaction matrix to only 1's and 0's
+
+#head(el.info[[2]]) # make sure it looks ok
+
+mat.floresta.atlantica <- i.mat # give it unique name
+
+# interaction md:
+interaction_md.FA <- unique(df.EL[c("Frugivore_Species","Plant_Species")])
+
+#------------------------------------------------#
+
+#4. Mata Caducifolia
+
+df.EL <- MataCaducifolia.df #make an edge list
+
+df.EL$intxn <- paste(df.EL$Frugivore_Species, df.EL$Plant_Species, sep = "//") #pull out pairs of interacting spp
+
+#head(df.EL$intxn) # now we have a column of each interaction name
+
+df.EL <- df.EL %>% # I only need the edge list info
+  dplyr::select(Plant_Species, Frugivore_Species, intxn)
+
+el.info <- el.to.imat(df.EL)
+
+#head(el.info[[1]]) # the weighted edge list
+
+i.mat <- el.info[[2]] # store the interaction matrix, it's weighted right now
+
+i.mat[i.mat > 0] <- 1 # change interaction matrix to only 1's and 0's
+
+#head(el.info[[2]]) # make sure it looks ok
+
+mat.mata.caducifolia <- i.mat # give unique name
+
+# interaction md
+interaction_md.MC <- unique(df.EL[c("Frugivore_Species","Plant_Species")])
+
+#clean
+rm(i.mat, el.info, el.to.imat, df.EL, MataCaducifolia.df, araucaria.df, cerrado.df, FlorestaAtlantica.df)
+
+```
+
+### compute degree for frugivores and plants and make plant and frugivore metadata at ecoregion scale
+
+compute frugivore and plant species' degrees within each ecoregion's network and add to metadata
+
+```{r compute frugivore and plant network degrees within each ecoregions network}
+
+# Compute frugivore degree for the four ecoregions:
+
+Frugivore_degree.AR <- specieslevel(mat.araucaria, level = "higher", index = "degree")
+#-#
+Frugivore_degree.CR <- specieslevel(mat.cerrado, level = "higher", index = "degree")
+#-#
+Frugivore_degree.FA <- specieslevel(mat.floresta.atlantica, level = "higher", index = "degree")
+#-#
+Frugivore_degree.MC <- specieslevel(mat.mata.caducifolia, level = "higher", index = "degree")
+
+#----------------------------------------------------------------#
+
+# Add frugivore degree to frugivore metadata:
+
+Frugivore_degree.AR <- Frugivore_degree.AR %>%
+  tibble::rownames_to_column("Frugivore_Species") #get it set up to join to metadata
+names(Frugivore_degree.AR)[2] <-"Frugivore_degree" #rename
+
+araucaria_frug_md<- merge(Frugivore_degree.AR, araucaria_frug_md, by = "Frugivore_Species") #merge
+
+#-#
+
+Frugivore_degree.CR <- Frugivore_degree.CR %>%
+  tibble::rownames_to_column("Frugivore_Species") #get it set up to join to metadata
+names(Frugivore_degree.CR)[2] <-"Frugivore_degree" #rename
+
+cerrado_frug_md<- merge(Frugivore_degree.CR, cerrado_frug_md, by = "Frugivore_Species") #merge
+
+#-#
+
+Frugivore_degree.FA <- Frugivore_degree.FA %>%
+  tibble::rownames_to_column("Frugivore_Species") #get it set up to join to metadata
+names(Frugivore_degree.FA)[2] <-"Frugivore_degree" #rename
+
+floresta.atlantica_frug_md<- merge(Frugivore_degree.FA, floresta.atlantica_frug_md, by = "Frugivore_Species") #merge
+
+#-#
+
+Frugivore_degree.MC <- Frugivore_degree.MC %>%
+  tibble::rownames_to_column("Frugivore_Species") #get it set up to join to metadata
+names(Frugivore_degree.MC)[2] <-"Frugivore_degree" #rename
+mata.caducifolia_frug_md<- merge(Frugivore_degree.MC, mata.caducifolia_frug_md, by = "Frugivore_Species") #merge
+
+#-----------------------------------------------------------------#
+
+# Compute plant degree for the four ecoregions & add the to plant metadata:
+
+# Araucaria:
+
+Plant_degree.AR <- specieslevel(mat.araucaria, level = "lower", index = "degree")
+Plant_degree.AR <- Plant_degree.AR %>%
+  tibble::rownames_to_column("Plant_Species") #get it set up to join df
+names(Plant_degree.AR)[2] <-"Plant_degree" #rename
+araucaria_plant_md <- merge(araucaria_plant_md, Plant_degree.AR, by = "Plant_Species") #merge
+
+#-#
+
+# Cerrado:
+
+Plant_degree.CR <- specieslevel(mat.cerrado, level = "lower", index = "degree")
+Plant_degree.CR <- Plant_degree.CR %>%
+  tibble::rownames_to_column("Plant_Species") #get it set up to join df
+names(Plant_degree.CR)[2] <-"Plant_degree" #rename
+cerrado_plant_md <- merge(cerrado_plant_md, Plant_degree.CR, by = "Plant_Species") #merge
+
+#-#
+
+# Mata caducifolia:
+
+Plant_degree.MC <- specieslevel(mat.mata.caducifolia, level = "lower", index = "degree")
+Plant_degree.MC <- Plant_degree.MC %>%
+  tibble::rownames_to_column("Plant_Species") #get it set up to join
+names(Plant_degree.MC)[2] <-"Plant_degree" #rename
+
+mata.caducifolia_plant_md <- merge(mata.caducifolia_plant_md, Plant_degree.MC, by = "Plant_Species") #merge 
+
+#-#
+
+# Floresta Atlantica:
+
+Plant_degree.FA <- specieslevel(mat.floresta.atlantica, level = "lower", index = "degree")
+Plant_degree.FA <- Plant_degree.FA %>%
+  tibble::rownames_to_column("Plant_Species") #get it set up to join df
+names(Plant_degree.FA)[2] <-"Plant_degree" #rename
+
+floresta.atlantica_plant_md <- merge(floresta.atlantica_plant_md, Plant_degree.FA, by = "Plant_Species") #merge
+
+#-----------------------------------------------------------------#
+
+# Also add degree for plants and frugivores to the dataframe with each unique interaction from the network for later analysis
+
+interaction_md.AR <-merge(interaction_md.AR, Plant_degree.AR, by = "Plant_Species")
+interaction_md.AR <-merge(interaction_md.AR, Frugivore_degree.AR, by = "Frugivore_Species")
+
+# And finish compiling the interaction metadata info by adding the endangerment data for frugivores
+temp<-araucaria_frug_md %>%
+  dplyr::select(Frugivore_Species, Frug_IUCN, Frug_IUCN_Original)
+interaction_md.AR<-merge(interaction_md.AR, temp, by = "Frugivore_Species")
+#-#
+
+# Repeat for each ecoregion:
+interaction_md.CR <-merge(interaction_md.CR, Plant_degree.CR, by = "Plant_Species")
+interaction_md.CR <-merge(interaction_md.CR, Frugivore_degree.CR, by = "Frugivore_Species")
+temp<-cerrado_frug_md %>%
+  dplyr::select(Frugivore_Species, Frug_IUCN, Frug_IUCN_Original)
+interaction_md.CR<-merge(interaction_md.CR, temp, by = "Frugivore_Species")
+#-#
+interaction_md.MC <-merge(interaction_md.MC, Plant_degree.MC, by = "Plant_Species")
+interaction_md.MC <-merge(interaction_md.MC, Frugivore_degree.MC, by = "Frugivore_Species")
+temp<-mata.caducifolia_frug_md %>%
+  dplyr::select(Frugivore_Species, Frug_IUCN, Frug_IUCN_Original)
+interaction_md.MC<-merge(interaction_md.MC, temp, by = "Frugivore_Species")
+#-#
+interaction_md.FA <-merge(interaction_md.FA, Plant_degree.FA, by = "Plant_Species")
+interaction_md.FA <-merge(interaction_md.FA, Frugivore_degree.FA, by = "Frugivore_Species")
+temp<-floresta.atlantica_frug_md %>%
+  dplyr::select(Frugivore_Species, Frug_IUCN, Frug_IUCN_Original)
+interaction_md.FA<-merge(interaction_md.FA, temp, by = "Frugivore_Species")
+
+# clean
+rm(temp, Frugivore_degree.AR, Frugivore_degree.CR, Frugivore_degree.FA, Frugivore_degree.MC, Plant_degree.AR, Plant_degree.CR, Plant_degree.FA, Plant_degree.MC)
+```
+
+
+# Analysis 
+
+* Analysis 1 evaluates relationships between frugivore degree and endangerment status
+    + Done first at the biome level, then repeated for each of the four ecoregion scale networks
+* Analysis 2 evaluates relationships between frugivore degree and population trend
+    + Done first at the biome leve, then repeated for each of the four ecoregions
+    + Population trends change before endangerment status does, so it is worthwhile evaluating in addition to just species currently classified as endangered by IUCN
+    + Both types of analyses (looking at both IUCN status and population trends as predictors of frugivore network degree) use negative binomial glms
+* Analysis 3 uses 'for loops' to simulate different frugivore loss scenarios
+  + The scenarios are: decreasing order of IUCN status, body mass, and network degree; plus a random removal scenario
+  + This is done for the biome-scale network and for each of the four ecoregions
+  + Bootstrapping is used to gain estimates and 95% confidence intervals (CI) following the IUCN-status-based and random loss simulations. It takes many hours to run and CI are too small to see when plotted
+
+
+## Analysis 1 data overview
+
+### Biome scale: network degree in lower and higher risk frugivore groups
+*Frugivore degree distribution for the biome-scale network:
+```{r biome frugivore degree histogram, fig.width = 4, fig.height=4}
+hist(biome_frug_md$Frugivore_degree, breaks = 20, main = "Biome\n frugivore degrees", xlab = NULL)
+```
+
+*Mean degree for frugivores in 'lower risk' category:
+```{r biome frugivore mean degree lower risk}
+mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_IUCN == "lower_risk")])
+```
+*And higher risk:
+```{r biome frugivore mean degree higher risk}
+mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_IUCN == "higher_risk")])
+```
+*What do the two groups' histograms look like?
+```{r histograms for low and high risk frugivore degrees, warning=F}
+par(mfrow=c(1,2))
+hist(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_IUCN == "lower_risk")], breaks =20, main = "Biome\n frugivore degrees: low risk", xlab = NULL)
+
+hist(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_IUCN == "higher_risk")], breaks = 20, main = "Biome\n frugivore degrees: high risk", xlab = NULL)
+
+```
+
+### Ecoregion-scale: network degree in lower and higher risk frugivore groups
+
+*Frugivore degree distribution for the ecoregion-scale networks:
+```{r ecoregion frugivore degree histogram}
+par(mfrow=c(2,2))
+hist(araucaria_frug_md$Frugivore_degree, breaks =20, main = "Araucaria\n frugivore degrees", xlab = NULL) #araucaria has a larger distribution of degree values
+hist(cerrado_frug_md$Frugivore_degree, breaks =20, main = "Cerrado\n frugivore degrees", xlab = NULL) #cerrado really seems to have frugs with fewer interactions
+hist(floresta.atlantica_frug_md$Frugivore_degree, breaks =20, main = "Serra do Mar\n frugivore degrees", xlab = NULL) #comparable to araucaria
+hist(mata.caducifolia_frug_md$Frugivore_degree, breaks =20, main = "Mata caducifolia\n frugivore degrees", xlab = NULL) #kind of more like cerrado
+```
+
+*mean degrees per risk category per ecoregion
+```{r ecoregion frugivore mean degrees per risk category}
+deg.summaries.risklevel <- matrix(nrow = 8, ncol = 3)
+colnames(deg.summaries.risklevel)<-c('Ecoregion', 'Risk', 'Mean_degree')
+deg.summaries.risklevel[1:2, 1]<-"Araucaria"
+deg.summaries.risklevel[3:4, 1]<-"Cerrado"
+deg.summaries.risklevel[5:6, 1]<-"Serra_do_Mar"
+deg.summaries.risklevel[7:8, 1]<-"Mata_caducifolia"
+
+deg.summaries.risklevel[1, 2]<-"lower"
+deg.summaries.risklevel[2, 2]<-"higher"
+deg.summaries.risklevel[3, 2]<-"lower"
+deg.summaries.risklevel[4, 2]<-"higher"
+deg.summaries.risklevel[5, 2]<-"lower"
+deg.summaries.risklevel[6, 2]<-"higher"
+deg.summaries.risklevel[7, 2]<-"lower"
+deg.summaries.risklevel[8, 2]<-"higher"
+
+deg.summaries.risklevel[1, 3]<-mean(araucaria_frug_md$Frugivore_degree[which(araucaria_frug_md$Frug_IUCN == "lower_risk")],)
+deg.summaries.risklevel[2, 3]<-mean(araucaria_frug_md$Frugivore_degree[which(araucaria_frug_md$Frug_IUCN == "higher_risk")])
+deg.summaries.risklevel[3, 3]<-mean(cerrado_frug_md$Frugivore_degree[which(cerrado_frug_md$Frug_IUCN == "lower_risk")],)
+deg.summaries.risklevel[4, 3]<-mean(cerrado_frug_md$Frugivore_degree[which(cerrado_frug_md$Frug_IUCN == "higher_risk")],)
+deg.summaries.risklevel[5, 3]<-mean(floresta.atlantica_frug_md$Frugivore_degree[which(floresta.atlantica_frug_md$Frug_IUCN == "lower_risk")],)
+deg.summaries.risklevel[6, 3]<-mean(floresta.atlantica_frug_md$Frugivore_degree[which(floresta.atlantica_frug_md$Frug_IUCN == "higher_risk")],)
+deg.summaries.risklevel[7, 3]<-mean(mata.caducifolia_frug_md$Frugivore_degree[which(mata.caducifolia_frug_md$Frug_IUCN == "lower_risk")])
+deg.summaries.risklevel[8, 3]<-mean(mata.caducifolia_frug_md$Frugivore_degree[which(mata.caducifolia_frug_md$Frug_IUCN == "higher_risk")])
+
+deg.summaries.risklevel
+```
+
+*Visually look at and compare histograms for frugivore degrees between the two groups for each ecoregion:
+
+```{r histograms each category each ecoregion, echo =FALSE}
+#clean
+rm(deg.summaries.risklevel)
+
+par(mfrow=c(4,2))
+hist(araucaria_frug_md$Frugivore_degree[which(araucaria_frug_md$Frug_IUCN == "lower_risk")],  main = "Araucaria degrees\n low risk frugs", xlab = NULL)
+hist(araucaria_frug_md$Frugivore_degree[which(araucaria_frug_md$Frug_IUCN == "higher_risk")],  main = "Araucaria degrees\n high risk frugs", xlab= NULL)
+
+hist(cerrado_frug_md$Frugivore_degree[which(cerrado_frug_md$Frug_IUCN == "lower_risk")],  main = "Cerrado degrees\n low risk frugs", xlab=NULL)
+hist(cerrado_frug_md$Frugivore_degree[which(cerrado_frug_md$Frug_IUCN == "higher_risk")],  main = "Cerrado degrees\n high risk frugs", xlab=NULL)
+
+hist(floresta.atlantica_frug_md$Frugivore_degree[which(floresta.atlantica_frug_md$Frug_IUCN == "lower_risk")],  main = "Serra do Mar degrees\n low risk frugs", xlab=NULL)
+hist(floresta.atlantica_frug_md$Frugivore_degree[which(floresta.atlantica_frug_md$Frug_IUCN == "higher_risk")],  main = "Serra do Mar degrees\n high risk frugs", xlab=NULL)
+
+hist(mata.caducifolia_frug_md$Frugivore_degree[which(mata.caducifolia_frug_md$Frug_IUCN == "lower_risk")],  main = "Mata caducifolia degrees\n low risk frugs", xlab=NULL)
+hist(mata.caducifolia_frug_md$Frugivore_degree[which(mata.caducifolia_frug_md$Frug_IUCN == "higher_risk")],  main = "Mata caducifolia degrees\n high risk frugs", xlab= NULL)
+```
+
+*Number of frugivore species in higher versus lower risk groups: biome-scale
+```{r summarise how many species in each endangerment category at biome level}
+biome_frug_md %>% group_by(Frug_IUCN) %>%
+  summarise(count = length(Frugivore_Species))
+```
+*Number of frugivore species in higher versus lower risk groups: ecoregion-scale
+```{r repeat with ecoregion level, warning=FALSE}
+keep = c("Araucaria", "Cerrado", "Floresta Atlantica", "Mata Caducifolia" )
+ER.df %>% dplyr::filter(TIPO == keep) %>% 
+  group_by(TIPO,Frug_IUCN) %>%
+  summarise(count = length(Frugivore_Species)) 
+```
+
+## Analysis 2 data overview (similar to above but looking at frugivores grouped according to if their global population sizes are shinking or growing)
+### Biome scale: network degree in the increasing population grouper and higher risk frugivore groups
+
+*Mean degree for frugivores in with increasing population sizes (whole biome)
+```{r biome mean degree of frugivores with growing pops}
+mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_Population_Trend == "Increasing")])
+```
+*And those that have shrinking population sizes
+```{r biome mean degree of frugivores with shrinking pops}
+
+mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_Population_Trend == "Decreasing")])
+```
+*What do the two groups' histograms look like? ("pops" = populations)
+```{r histograms for decreasing and high risk frugivore degrees}
+par(mfrow=c(1,2))
+hist(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_Population_Trend == "Increasing")], breaks =20, main = "Biome\n frugivore degrees: growing pops", xlab = NULL)
+hist(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_Population_Trend == "Decreasing")], breaks = 20, main = "Biome\n frugivore degrees: shrinking pops", xlab = NULL)
+```
+("pops" = populations)
+
+### Ecoregion-scale: network degree for frugivores of increasing versus decreasing populations sizes
+
+*mean degrees per population trajectory category per ecoregion
+```{r ecoregion frugivore mean degrees per risk level}
+deg.summaries.population.trend <- matrix(nrow = 8, ncol = 3)
+colnames(deg.summaries.population.trend)<-c('Ecoregion', 'Population_Trend', 'Mean_degree')
+deg.summaries.population.trend[1:2, 1]<-"Araucaria"
+deg.summaries.population.trend[3:4, 1]<-"Cerrado"
+deg.summaries.population.trend[5:6, 1]<-"Serra_do_Mar"
+deg.summaries.population.trend[7:8, 1]<-"Mata_caducifolia"
+
+deg.summaries.population.trend[1, 2]<-"increasing"
+deg.summaries.population.trend[2, 2]<-"decreasing"
+deg.summaries.population.trend[3, 2]<-"increasing"
+deg.summaries.population.trend[4, 2]<-"decreasing"
+deg.summaries.population.trend[5, 2]<-"increasing"
+deg.summaries.population.trend[6, 2]<-"decreasing"
+deg.summaries.population.trend[7, 2]<-"increasing"
+deg.summaries.population.trend[8, 2]<-"decreasing"
+
+deg.summaries.population.trend[1, 3]<-mean(araucaria_frug_md$Frugivore_degree[which(araucaria_frug_md$Frug_Population_Trend == "Increasing")],)
+deg.summaries.population.trend[2, 3]<-mean(araucaria_frug_md$Frugivore_degree[which(araucaria_frug_md$Frug_Population_Trend == "Decreasing")])
+deg.summaries.population.trend[3, 3]<-mean(cerrado_frug_md$Frugivore_degree[which(cerrado_frug_md$Frug_Population_Trend == "Increasing")],)
+deg.summaries.population.trend[4, 3]<-mean(cerrado_frug_md$Frugivore_degree[which(cerrado_frug_md$Frug_Population_Trend == "Decreasing")],)
+deg.summaries.population.trend[5, 3]<-mean(floresta.atlantica_frug_md$Frugivore_degree[which(floresta.atlantica_frug_md$Frug_Population_Trend == "Increasing")],)
+deg.summaries.population.trend[6, 3]<-mean(floresta.atlantica_frug_md$Frugivore_degree[which(floresta.atlantica_frug_md$Frug_Population_Trend == "Decreasing")],)
+deg.summaries.population.trend[7, 3]<-mean(mata.caducifolia_frug_md$Frugivore_degree[which(mata.caducifolia_frug_md$Frug_Population_Trend == "Increasing")])
+deg.summaries.population.trend[8, 3]<-mean(mata.caducifolia_frug_md$Frugivore_degree[which(mata.caducifolia_frug_md$Frug_Population_Trend == "Decreasing")])
+
+deg.summaries.population.trend
+```
+
+*Visually look at and compare histograms for frugivore degrees between the two groups for each ecoregion:
+
+```{r histograms of frugivore degrees for each population trend}
+
+# clean
+rm(deg.summaries.population.trend)
+
+par(mfrow=c(4,2))
+hist(araucaria_frug_md$Frugivore_degree[which(araucaria_frug_md$Frug_Population_Trend == "Increasing")], breaks = 20, main = "Araucaria frug degrees\n increasing population", xlab = NULL)
+hist(araucaria_frug_md$Frugivore_degree[which(araucaria_frug_md$Frug_Population_Trend == "Decreasing")], breaks = 20, main = "Araucaria frug degrees\n decreasing population", xlab= NULL)
+
+hist(cerrado_frug_md$Frugivore_degree[which(cerrado_frug_md$Frug_Population_Trend == "Increasing")], breaks = 20, main = "Cerrado frug degrees\n increasing population", xlab=NULL)
+hist(cerrado_frug_md$Frugivore_degree[which(cerrado_frug_md$Frug_Population_Trend == "Decreasing")], breaks = 20, main = "Cerrado frug degrees\n decreasing population", xlab=NULL)
+
+hist(floresta.atlantica_frug_md$Frugivore_degree[which(floresta.atlantica_frug_md$Frug_Population_Trend == "Increasing")], breaks = 20, main = "Serra do Mar degrees\n increasing population", xlab=NULL)
+hist(floresta.atlantica_frug_md$Frugivore_degree[which(floresta.atlantica_frug_md$Frug_Population_Trend == "Decreasing")], breaks = 20, main = "Serra do Mar degrees\n decreasing population", xlab=NULL)
+
+hist(mata.caducifolia_frug_md$Frugivore_degree[which(mata.caducifolia_frug_md$Frug_Population_Trend == "Increasing")], breaks = 20, main = "Mata caducifolia frug degrees\n increasing population", xlab=NULL)
+hist(mata.caducifolia_frug_md$Frugivore_degree[which(mata.caducifolia_frug_md$Frug_Population_Trend == "Decreasing")], breaks = 20, main = "Mata caducifolia frug degrees\n decreasing population", xlab= NULL)
+```
+
+*Number of frugivore species in decreasing and increasing population groups: biome-scale
+```{r summarise how many species in each population growth trend category at biome level}
+biome_frug_md %>% group_by(Frug_Population_Trend) %>%
+  summarise(count = length(Frugivore_Species))
+```
+*Number of frugivore species in decreasing and increasing population groups: ecoregion-scale
+```{r summarise again with ecoregion level, warning=FALSE}
+keep = c("Araucaria", "Cerrado", "Floresta Atlantica", "Mata Caducifolia" )
+ER.df %>% dplyr::filter(TIPO == keep) %>% 
+  group_by(TIPO,Frug_Population_Trend) %>%
+  summarise(count = length(Frugivore_Species)) 
+#clean
+rm(keep)
+```
+
+## Analysis 1
+
+Negative binomial model evaluating effect of 'higher_risk' versus 'lower_risk' endangerment status of frugivores on their degree: are these two things related?
+    +This is only done at the biome scale because the ecoregions have too small of sample sizes
+    +Using negative binomial to account for overdispersion
+### model 1, analysis 1
+```{r analysis 1 component 1}
+
+# Negative binomial model looking at frugivore degree and endangerment status
+
+biome.deg.m1 <- glm.nb(Frugivore_degree ~ Frug_IUCN, data = biome_frug_md)
+summary(biome.deg.m1)
+
+# Simplify model results
+aov.biome.deg.m1 = Anova(biome.deg.m1)
+
+# DISPLAY MODEL RESULTS
+aov.biome.deg.m1
+
+# SAVE MODEL RESULTS 
+out.aov.biome.deg.m1 = tidy(aov.biome.deg.m1)
+# write.csv(out.aov.biome.deg.m1, file = "results/aov.biome.deg.m1-results.csv")
+
+# Clean
+rm(aov.biome.deg.m1, out.aov.biome.deg.m1)
+```
+
+*Summary
+    +There is a non-significant trend of frugivores in the 'higher risk' category to have higher network degree values (diet breadths) than frugivores in the IUCN least concern category (Chisq = 1.86, p = 0.17)
+
+### model validation, analysis 1
+```{r model validation analysis 1}
+
+sim.out.biome.deg.m1 <- simulateResiduals(fittedModel = biome.deg.m1, plot = F)
+plot(sim.out.biome.deg.m1) # plot residual plots
+testDispersion(sim.out.biome.deg.m1, plot = F) # print dispersion results
+testZeroInflation(sim.out.biome.deg.m1, plot = F) # print zero-inflation results
+
+# Am not familiar with interpreting these results, ask B
+
+# Clean
+rm(sim.out.biome.deg.m1)
+```
+
+I'm not familiar with interpreting these model validations - is this okay? Does this method even work for a negative binomial model?
+
+### plot, analysis 1
+
+* This is a boxplot of frugivore network degree at the biome-scale, split into frugivores in the higher risk (NT, VU, EN, CR) and lower risk (LC) IUCN categories
+    + the mean values are added as black squares
+    + 95% confidence intervals (CIs) are shown as bars around means
+
+```{r analysis 1 get confidence intervals}
+# get plot data ready (compute 95% CIs)
+# higher risk = HR, lower risk = LR
+# bootstrap using negative binomial specific function (package degreenet)
+
+# HR
+biome_bootstrap.HR <- bootstrapnb(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_IUCN == "higher_risk")], m = 1000, alpha = 0.95)
+# LR
+biome_bootstrap.LR <- bootstrapnb(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_IUCN == "lower_risk")], m = 1000, alpha = 0.95)
+
+# temp storage dataframe:
+biome_bootstrap.temp <- data.frame(matrix(vector(),1, 5,
+                dimnames=list(c(), c("Region", "Frug_IUCN", "mean", "lower.95", "upper.95"))))
+
+biome_bootstrap.temp[1] <- "Atlantic_Forest"
+biome_bootstrap.temp[2] <-"higher_risk"
+biome_bootstrap.temp[3] <-mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_IUCN == "higher_risk")])
+biome_bootstrap.temp[4] <- biome_bootstrap.HR[[1]] 
+biome_bootstrap.temp[5] <- biome_bootstrap.HR[[5]]
+biome_bootstrap.temp[2,1] <- "Atlantic_Forest"
+biome_bootstrap.temp[2,2] <-"lower_risk"
+biome_bootstrap.temp[2,3] <-mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_IUCN == "lower_risk")])
+biome_bootstrap.temp[2,4] <- biome_bootstrap.LR[[1]] 
+biome_bootstrap.temp[2,5] <- biome_bootstrap.LR[[5]]
+```
+
+```{r make the plot for analysis 1}
+# just looking at this but not going to use:
+# myplotdata = biome_frug_md %>% group_by(Frug_IUCN) %>% 
+#  summarize(mean = mean(Frugivore_degree), stdev = sd(Frugivore_degree)) 
+# myplotdata
+
+# create plot:
+# to allow plot to also give an idea of the sample size and degree distribution in each risk level, I use biome_frug_md to plot x = risk level and y = Frugivore degree
+# then I use biome_bootstrap.temp to plot over that a point for the mean and bars showing CIs
+
+# not so sure I want the version with a line connecting the means
+# use this to add if I change my mind: + geom_segment(aes(x = 1, y = 19.97727, xend = 2, yend = 15.32852, color = "black",), linetype = 3, size = 0.8)
+
+# save this version
+biome_deg.risk.level.plot<-biome_frug_md %>%
+ggplot(aes(x = Frug_IUCN, y = Frugivore_degree, color = Frug_IUCN)) + geom_point(size = 2, shape = 16, alpha = 0.8, position=position_jitterdodge(jitter.width = 0.15)) + 
+  geom_pointrange(data = biome_bootstrap.temp, mapping = aes(x = Frug_IUCN, y = mean, ymax = upper.95, ymin = lower.95, color = "black"), size = 0.5, shape = 15)+ theme_bw() + labs(y="No. plant species dispersed", x = NULL) + theme(axis.text=element_text(colour="black", size = 10)) + theme(axis.title = element_text(size = 12, face = "bold"))+ scale_x_discrete(labels = c("Higher risk", "Lower risk")) + scale_colour_manual(labels = c("Group mean", "Higher risk", "Lower risk"), values = c("black","darkred", "#E69F00")) + theme(legend.title=element_blank()) + annotate(geom="text", x = 2.2, y = 137, label = bquote(~italic(X^2)~'= 1.86,' ~italic(p)~ '= 0.17')) + guides(color=guide_legend(override.aes = list(linetype = c(0,0,0))))+ggtitle("high and low endangerment status") + theme(plot.title=element_text(hjust = 0.5))
+
+biome_deg.risk.level.plot
+
+# SAVE PLOT
+# example, but key thing is the `plots/` prefix in the file path
+ggsave(biome_deg.risk.level.plot, file = "plots/biome_deg.risk.level.pdf", width = 5, height = 3)
+
+# Clean
+#rm(biome_bootstrap.temp, biome_bootstrap.HR, biome_bootstrap.LR)
+```
+
+This plot shows frugivore degree between high and low risk frugivores. Bars show 95% confidence intervals around the mean (which is shown as black point for each group), calculated from 1000 bootstrap iterations.
+
+
+## Analysis 2
+
+This is a repeat of the above analysis but looking at frugivores belonging to growing versus shrinking global populations
+
+### model 1, analysis 2
+```{r analysis 2 component 1}
+
+# Just interested in increasing and decreasing populations, subset a temporary dataframe with just those groups
+biome_frug_popsubset<-biome_frug_md %>%
+  dplyr::filter(Frug_Population_Trend == 'Increasing'|Frug_Population_Trend == 'Decreasing')
+
+# Negative binomial model looking at frugivore degree and population trend status
+
+biome.deg.m2 <- glm.nb(Frugivore_degree ~ Frug_Population_Trend, data = biome_frug_popsubset)
+summary(biome.deg.m2)
+
+# Simplify model results
+aov.biome.deg.m2 = Anova(biome.deg.m2)
+
+# DISPLAY MODEL RESULTS
+aov.biome.deg.m2
+
+# SAVE MODEL RESULTS 
+out.aov.biome.deg.m2 = tidy(aov.biome.deg.m2)
+# write.csv(out.aov.biome.deg.m2, file = "results/aov.biome.deg.poptrend.m2-results.csv")
+
+# Clean
+rm(aov.biome.deg.m2, out.aov.biome.deg.m2)
+```
+
+*Summary
+    +Frugivores belonging in the decreasing population category disperse a significantly greater variety of seeds than those with growing population sizes (Chisq = 4.51, p = 0.03)
+
+### model validation, analysis 2
+```{r model validation analysis 2}
+
+sim.out.biome.deg.m2 <- simulateResiduals(fittedModel = biome.deg.m2, plot = F)
+plot(sim.out.biome.deg.m2) # plot residual plots
+testDispersion(sim.out.biome.deg.m2, plot = F) # print dispersion results
+testZeroInflation(sim.out.biome.deg.m2, plot = F) # print zero-inflation results
+
+# Am not familiar with interpreting these results, ask B
+
+# Clean
+rm(sim.out.biome.deg.m2)
+```
+
+I'm not familiar with interpreting these model validations - is this okay? Does this method even work for a negative binomial model?
+
+### plot, analysis 2
+
+* This is a boxplot of frugivore network degree at the biome-scale, split into frugivores in the higher risk (NT, VU, EN, CR) and lower risk (LC) IUCN categories
+    + the mean values are added as black squares
+    + 95% CIs are bars around means
+
+```{r analysis 2 get CIs}
+# increasing = INC, decreasing = DEC
+
+biome_bootstrap.DEC <- bootstrapnb(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_Population_Trend == "Decreasing")], m = 1000, alpha = 0.95)
+
+biome_bootstrap.INC <- bootstrapnb(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_Population_Trend == "Increasing")], m = 1000, alpha = 0.95)
+
+# temp storage dataframe:
+biome_bootstrap.temp <- data.frame(matrix(vector(),1, 5,
+                dimnames=list(c(), c("Region", "Frug_Population_Trend", "mean", "lower.95", "upper.95"))))
+
+biome_bootstrap.temp[1] <- "Atlantic_Forest"
+biome_bootstrap.temp[2] <-"Decreasing"
+biome_bootstrap.temp[3] <-mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_Population_Trend == "Decreasing")])
+biome_bootstrap.temp[4] <- biome_bootstrap.DEC[[1]] 
+biome_bootstrap.temp[5] <- biome_bootstrap.DEC[[5]]
+biome_bootstrap.temp[2,1] <- "Atlantic_Forest"
+biome_bootstrap.temp[2,2] <-"Increasing"
+biome_bootstrap.temp[2,3] <-mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_Population_Trend == "Increasing")])
+biome_bootstrap.temp[2,4] <- biome_bootstrap.INC[[1]] 
+biome_bootstrap.temp[2,5] <- biome_bootstrap.INC[[5]]
+```
+
+```{r make the plot for analysis 2}
+# create plot:
+biome_deg.pop.trend.plot<-biome_frug_popsubset %>%
+ggplot(aes(x = Frug_Population_Trend, y = Frugivore_degree, color = Frug_Population_Trend)) + geom_point(size = 2, shape = 16, alpha = 0.9, position=position_jitterdodge(jitter.width = 0.15)) + 
+  geom_pointrange(data = biome_bootstrap.temp, mapping = aes(x = Frug_Population_Trend, y = mean, ymax = upper.95, ymin = lower.95, color = "black"), size = 0.5, shape = 15)+ theme_bw() + labs(y="No. plant species dispersed", x = NULL) + theme(axis.text=element_text(colour="black", size = 10)) + theme(axis.title = element_text(size = 12, face = "bold"))+ scale_x_discrete(labels = c("Decreasing", "Increasing")) + scale_colour_manual(labels = c("Group mean", "Decreasing", "Increasing"), values = c("black","mediumorchid4", "olivedrab4")) + theme(legend.title=element_blank()) + annotate(geom="text", x = 2.2, y = 137, label = bquote(~italic(X^2)~'= 4.51,' ~italic(p)~ '= 0.03*')) + guides(color=guide_legend(override.aes = list(linetype = c(0,0,0)))) + ggtitle("decreasing and increasing populations") + theme(plot.title=element_text(hjust = 0.5))
+
+biome_deg.pop.trend.plot
+
+# SAVE PLOT
+# example, but key thing is the `plots/` prefix in the file path
+ggsave(biome_deg.pop.trend.plot, file = "plots/biome_deg.pop.trend.pdf", width = 5, height = 3)
+
+# Clean
+#rm(biome_bootstrap.temp, biome_bootstrap.DEC, biome_bootstrap.INC, biome_frug_popsubset)
+```
+
+This plot shows frugivore degree frugivores belonging to populations that are shrinking globally and those that are currently growing. Bars show 95% CIs around the mean (which is shown as black point for each group), calculated from 1000 bootstrap iterations.
+
+## Make Figure 1 from analyses 1 and 2
+Figure 1 is the combined plots from analyses 1 and 2
+```{r combine figures into panel}
+
+figure1 <- ggarrange(biome_deg.risk.level.plot, biome_deg.pop.trend.plot,
+                    labels = c("(a)", "(b)"),
+                    ncol = 2, nrow = 1)
+
+annotate_figure(figure1, top = text_grob("Frugivore diet breadth", size = 14))
+
+# Clean
+#rm(biome_deg.pop.trend.plot, biome_deg.risk.level.plot, figure1)
+```
+
+# Session Info
+
+This is key (though minimally) for reproducibility---replicate the code chunk below exactly
+
+```{r Session Info}
+sessionInfo()
+```
+
