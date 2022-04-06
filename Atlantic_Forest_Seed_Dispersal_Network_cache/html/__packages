@@ -1,10 +1,4 @@
 base
-methods
-datasets
-utils
-grDevices
-graphics
-stats
 tidyverse
 ggplot2
 tibble
@@ -45,5 +39,4 @@ pscl
 degreenet
 DHARMa
 broom.mixed
-grid
 ggpubr
