@@ -73,7 +73,6 @@ rm(Packages)
 
 ```{r data import}
 # Load Bello et al 2017 plant-frugivore interaction dataset
-
 master.df <- read.csv("data-in/ATLANTIC_frugivory_full_og.csv")
 ```
 
@@ -427,7 +426,7 @@ mata.caducifolia.df <- ER.df %>%
 
 similar to above with the biome-scale data, just pulling out info for each frugivore
 
-```{r make frugivore and plant metadata}
+```{r make frugivore and plant metadata for ecoregions}
 
 # Frugivore metadata creation per ecoregion:
 
@@ -579,8 +578,6 @@ interaction_md.MC <- unique(df.EL[c("Frugivore_Species","Plant_Species")])
 # Clean
 rm(i.mat, el.info, el.to.imat, df.EL, mata.caducifolia.df, araucaria.df, cerrado.df, serra.do.mar.df)
 
-# Environment notes:
-# Each network we are working with (Biome, Serra do Mar, Araucaria, Cerrado, and Mata Caducifolia) has its own interaction matrix, frugivore metadata, plant metadata, and interaction metadata. So we have 5 x 4 = 20 items in the environment we are working with (would love to simplify where possible later)
 ```
 
 ### compute degree for frugivores and plants and make plant and frugivore metadata at ecoregion scale
@@ -724,12 +721,19 @@ rm(temp, Frugivore_degree.AR, Frugivore_degree.CR, Frugivore_degree.FA, Frugivor
 * Analysis 3 uses 'for loops' to simulate different frugivore loss scenarios
   + The scenarios are: decreasing order of IUCN status, body mass, and network degree; plus a random removal scenario
   + This is done for the biome-scale network and for each of the four ecoregions
-  + Bootstrapping is used to gain estimates and 95% confidence intervals (CI) following the IUCN-status-based and random loss simulations. It takes many hours to run and CI are too small to see when plotted
+  + Bootstrapping is used to gain estimates and 95% confidence intervals (CI) following the IUCN-status-based and random loss simulations.
 
 
-## Analysis 1 data overview
+## Analysis 1
 
-### Biome scale: network degree in lower and higher risk frugivore groups
+Negative binomial model evaluating effect of 'higher_risk' versus 'lower_risk' endangerment status of frugivores on their degree: are these two things related?
+    +This is only done at the biome scale because the ecoregions have too small of sample sizes
+    +Using negative binomial to account for overdispersion
+    +To meet model assumptions, we subtract 1 from all degree values so that the count data includes zeros and is able to be modeled with our neg binomial approach
+    
+### analysis 1 data overview
+
+#### biome scale: network degree in lower and higher risk frugivore groups
 *Frugivore degree distribution for the biome-scale network:
 ```{r biome frugivore degree histogram, fig.width = 4, fig.height=4}
 hist(biome_frug_md$Frugivore_degree, breaks = 20, main = "Biome\n frugivore degrees", xlab = NULL)
@@ -752,7 +756,8 @@ hist(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_risk_level == "high
 
 ```
 
-### Ecoregion-scale: network degree in lower and higher risk frugivore groups
+
+#### ecoregion-scale: network degree in lower and higher risk frugivore groups
 
 *Frugivore degree distribution for the ecoregion-scale networks:
 ```{r ecoregion frugivore degree histogram}
@@ -828,8 +833,110 @@ ER.df %>% dplyr::filter(TIPO == keep) %>%
   summarise(count = length(Frugivore_Species)) 
 ```
 
-## Analysis 2 data overview (similar to above but looking at frugivores grouped according to if their global population sizes are shinking or growing)
-### Biome scale: network degree in the increasing population grouper and higher risk frugivore groups
+    
+    
+### model, analysis 1
+```{r analysis 1 component 1}
+# our data is 'underdispersed' and fails the negative binomial model assumptions
+# to remedy this, we create a separate column for frugivore degree and subtract 1 from all values
+biome_frug_md$subzero <-(biome_frug_md$Frugivore_degree)-1
+
+# model
+biome.deg.m1 <- glm.nb(subzero ~ Frug_risk_level, data = biome_frug_md)
+summary(biome.deg.m1)
+
+# Simplify model results
+aov.biome.deg.m1 = Anova(biome.deg.m1)
+
+# DISPLAY MODEL RESULTS
+aov.biome.deg.m1
+
+# SAVE MODEL RESULTS 
+out.aov.biome.deg.m1 = tidy(aov.biome.deg.m1)
+# write.csv(out.aov.biome.deg.m1, file = "results/aov.biome.deg.m1-results.csv")
+
+# Clean
+rm(aov.biome.deg.m1, out.aov.biome.deg.m1)
+```
+
+*Summary
+    +There is a non-significant trend of frugivores in the 'higher risk' category to have higher network degree values (diet breadths) than frugivores in the IUCN least concern category (Chisq = 1.86, p = 0.17)
+
+
+### model validation, analysis 1
+```{r model validation analysis 1}
+
+sim.out.biome.deg.m1 <- simulateResiduals(fittedModel = biome.deg.m1, plot = F)
+plot(sim.out.biome.deg.m1) # plot residual plots
+testDispersion(sim.out.biome.deg.m1, plot = F) # print dispersion results
+testZeroInflation(sim.out.biome.deg.m1, plot = F) # print zero-inflation results
+
+# Clean
+rm(biome.deg.m1, sim.out.biome.deg.m1)
+```
+
+
+### figure, analysis 1
+
+* This is a boxplot of frugivore network degree at the biome-scale, split into frugivores in the higher risk (NT, VU, EN, CR) and lower risk (LC) IUCN categories
+    + the mean values are added as black squares
+    + 95% confidence intervals (CIs) are shown as bars around means
+
+```{r analysis 1 get confidence intervals, cache=TRUE}
+# Get plot data ready (compute 95% CIs)
+# Higher risk = HR, lower risk = LR
+# Bootstrap using negative binomial specific function (package degreenet)
+
+# HR
+biome_bootstrap.HR <- bootstrapnb(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_risk_level == "higher_risk")], m = 1000, alpha = 0.95)
+# LR
+biome_bootstrap.LR <- bootstrapnb(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_risk_level == "lower_risk")], m = 1000, alpha = 0.95)
+
+# Storage dataframe:
+biome_bootstrap.temp1 <- data.frame(matrix(vector(),1, 5,
+                dimnames=list(c(), c("Region", "Frug_risk_level", "mean", "lower.95", "upper.95"))))
+
+biome_bootstrap.temp1[1] <- "Atlantic_Forest"
+biome_bootstrap.temp1[2] <-"higher_risk"
+biome_bootstrap.temp1[3] <-mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_risk_level == "higher_risk")])
+biome_bootstrap.temp1[4] <- biome_bootstrap.HR[[1]] 
+biome_bootstrap.temp1[5] <- biome_bootstrap.HR[[5]]
+biome_bootstrap.temp1[2,1] <- "Atlantic_Forest"
+biome_bootstrap.temp1[2,2] <-"lower_risk"
+biome_bootstrap.temp1[2,3] <-mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_risk_level == "lower_risk")])
+biome_bootstrap.temp1[2,4] <- biome_bootstrap.LR[[1]] 
+biome_bootstrap.temp1[2,5] <- biome_bootstrap.LR[[5]]
+```
+
+```{r make the plot for analysis 1}
+
+biome_deg.risk.level.plot<-biome_frug_md %>%
+ggplot(aes(x = Frug_risk_level, y = Frugivore_degree, color = Frug_risk_level)) + geom_point(size = 2, shape = 16, alpha = 0.8, position=position_jitterdodge(jitter.width = 0.15)) + 
+  geom_pointrange(data = biome_bootstrap.temp1, mapping = aes(x = Frug_risk_level, y = mean, ymax = upper.95, ymin = lower.95, color = "black"), size = 0.5, shape = 15)+ theme_bw() + labs(y="No. plant species dispersed", x = NULL) + theme(axis.text=element_text(colour="black", size = 10)) + theme(axis.title = element_text(size = 12, face = "bold"))+ scale_x_discrete(labels = c("Higher risk", "Lower risk")) + scale_colour_manual(labels = c("Group mean", "Higher risk", "Lower risk"), values = c("black","darkred", "#E69F00")) + theme(legend.title=element_blank()) + annotate(geom="text", x = 2.2, y = 137, label = bquote(~italic(X^2)~'= 1.30,' ~italic(p)~ '= 0.25')) + guides(color=guide_legend(override.aes = list(linetype = c(0,0,0))))+ggtitle("High and low endangerment status") + theme(plot.title=element_text(hjust = 0.6))
+
+biome_deg.risk.level.plot
+
+# SAVE PLOT
+# ggsave(biome_deg.risk.level.plot, file = "plots/biome_deg.risk.level.pdf", width = 5, height = 3)
+
+# Clean
+rm(biome_deg.risk.level.plot, biome_bootstrap.temp, biome_bootstrap.HR, biome_bootstrap.LR, biome_bootstrap.temp1)
+```
+
+This plot shows frugivore degree between high and low risk frugivores. Bars show 95% confidence intervals around the mean (which is shown as black point for each group), calculated from 1000 bootstrap iterations.
+
+
+
+
+
+
+## Analysis 2
+
+The steps in Analysis 2 are a repeat of Analysis 1 more or less, but here we are looking at frugivores belonging to growing versus shrinking global populations.
+
+### analysis 2 data overview 
+
+#### biome scale: network degree in the increasing population grouper and higher risk frugivore groups
 
 *Mean degree for frugivores in with increasing population sizes (whole biome)
 ```{r biome mean degree of frugivores with growing pops}
@@ -847,7 +954,8 @@ hist(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_Population_Trend ==
 hist(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_Population_Trend == "Decreasing")], breaks = 20, main = "Biome\n frugivore degrees: dec. pop.", xlab = NULL)
 ```
 
-### Ecoregion-scale: network degree for frugivores of increasing versus decreasing populations sizes
+
+#### ecoregion-scale: network degree for frugivores of increasing versus decreasing populations sizes
 
 *mean degrees per population trajectory category per ecoregion
 ```{r ecoregion frugivore mean degrees per risk level}
@@ -922,105 +1030,9 @@ ER.df %>% dplyr::filter(TIPO == keep) %>%
 rm(keep, ER.df)
 ```
 
-## Analysis 1
-
-Negative binomial model evaluating effect of 'higher_risk' versus 'lower_risk' endangerment status of frugivores on their degree: are these two things related?
-    +This is only done at the biome scale because the ecoregions have too small of sample sizes
-    +Using negative binomial to account for overdispersion
-### model 1, analysis 1
-```{r analysis 1 component 1}
-# our data is 'underdispersed' and fails the negative binomial model assumptions
-# to remedy this, we create a separate column for frugivore degree and subtract 1 from all values
-biome_frug_md$subzero <-(biome_frug_md$Frugivore_degree)-1
-
-# model
-biome.deg.m1 <- glm.nb(subzero ~ Frug_risk_level, data = biome_frug_md)
-summary(biome.deg.m1)
-
-# Simplify model results
-aov.biome.deg.m1 = Anova(biome.deg.m1)
-
-# DISPLAY MODEL RESULTS
-aov.biome.deg.m1
-
-# SAVE MODEL RESULTS 
-out.aov.biome.deg.m1 = tidy(aov.biome.deg.m1)
-# write.csv(out.aov.biome.deg.m1, file = "results/aov.biome.deg.m1-results.csv")
-
-# Clean
-rm(aov.biome.deg.m1, out.aov.biome.deg.m1)
-```
-
-*Summary
-    +There is a non-significant trend of frugivores in the 'higher risk' category to have higher network degree values (diet breadths) than frugivores in the IUCN least concern category (Chisq = 1.86, p = 0.17)
-
-### model validation, analysis 1
-```{r model validation analysis 1}
-
-sim.out.biome.deg.m1 <- simulateResiduals(fittedModel = biome.deg.m1, plot = F)
-plot(sim.out.biome.deg.m1) # plot residual plots
-testDispersion(sim.out.biome.deg.m1, plot = F) # print dispersion results
-testZeroInflation(sim.out.biome.deg.m1, plot = F) # print zero-inflation results
-
-# Clean
-rm(biome.deg.m1, sim.out.biome.deg.m1, biome.deg.m1)
-```
-
-### plot, analysis 1
-
-* This is a boxplot of frugivore network degree at the biome-scale, split into frugivores in the higher risk (NT, VU, EN, CR) and lower risk (LC) IUCN categories
-    + the mean values are added as black squares
-    + 95% confidence intervals (CIs) are shown as bars around means
-
-```{r analysis 1 get confidence intervals, cache=TRUE}
-# Get plot data ready (compute 95% CIs)
-# Higher risk = HR, lower risk = LR
-# Bootstrap using negative binomial specific function (package degreenet)
-
-# HR
-biome_bootstrap.HR <- bootstrapnb(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_risk_level == "higher_risk")], m = 1000, alpha = 0.95)
-# LR
-biome_bootstrap.LR <- bootstrapnb(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_risk_level == "lower_risk")], m = 1000, alpha = 0.95)
-
-# Storage dataframe:
-biome_bootstrap.temp1 <- data.frame(matrix(vector(),1, 5,
-                dimnames=list(c(), c("Region", "Frug_risk_level", "mean", "lower.95", "upper.95"))))
-
-biome_bootstrap.temp1[1] <- "Atlantic_Forest"
-biome_bootstrap.temp1[2] <-"higher_risk"
-biome_bootstrap.temp1[3] <-mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_risk_level == "higher_risk")])
-biome_bootstrap.temp1[4] <- biome_bootstrap.HR[[1]] 
-biome_bootstrap.temp1[5] <- biome_bootstrap.HR[[5]]
-biome_bootstrap.temp1[2,1] <- "Atlantic_Forest"
-biome_bootstrap.temp1[2,2] <-"lower_risk"
-biome_bootstrap.temp1[2,3] <-mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_risk_level == "lower_risk")])
-biome_bootstrap.temp1[2,4] <- biome_bootstrap.LR[[1]] 
-biome_bootstrap.temp1[2,5] <- biome_bootstrap.LR[[5]]
-```
-
-```{r make the plot for analysis 1}
-
-biome_deg.risk.level.plot<-biome_frug_md %>%
-ggplot(aes(x = Frug_risk_level, y = Frugivore_degree, color = Frug_risk_level)) + geom_point(size = 2, shape = 16, alpha = 0.8, position=position_jitterdodge(jitter.width = 0.15)) + 
-  geom_pointrange(data = biome_bootstrap.temp1, mapping = aes(x = Frug_risk_level, y = mean, ymax = upper.95, ymin = lower.95, color = "black"), size = 0.5, shape = 15)+ theme_bw() + labs(y="No. plant species dispersed", x = NULL) + theme(axis.text=element_text(colour="black", size = 10)) + theme(axis.title = element_text(size = 12, face = "bold"))+ scale_x_discrete(labels = c("Higher risk", "Lower risk")) + scale_colour_manual(labels = c("Group mean", "Higher risk", "Lower risk"), values = c("black","darkred", "#E69F00")) + theme(legend.title=element_blank()) + annotate(geom="text", x = 2.2, y = 137, label = bquote(~italic(X^2)~'= 1.30,' ~italic(p)~ '= 0.25')) + guides(color=guide_legend(override.aes = list(linetype = c(0,0,0))))+ggtitle("High and low endangerment status") + theme(plot.title=element_text(hjust = 0.6))
-
-biome_deg.risk.level.plot
-
-# SAVE PLOT
-# ggsave(biome_deg.risk.level.plot, file = "plots/biome_deg.risk.level.pdf", width = 5, height = 3)
-
-# Clean
-rm(biome_deg.risk.level.plot, biome_bootstrap.temp, biome_bootstrap.HR, biome_bootstrap.LR, biome_bootstrap.temp1)
-```
-
-This plot shows frugivore degree between high and low risk frugivores. Bars show 95% confidence intervals around the mean (which is shown as black point for each group), calculated from 1000 bootstrap iterations.
 
 
-## Analysis 2
-
-This is a repeat of the above analysis but looking at frugivores belonging to growing versus shrinking global populations
-
-### model 1, analysis 2
+### model, analysis 2
 ```{r analysis 2 component 1}
 
 # Just interested in increasing and decreasing populations, subset a temporary dataframe with just those groups
@@ -1049,6 +1061,7 @@ rm(aov.biome.deg.m2, out.aov.biome.deg.m2)
 *Summary
     +Frugivores belonging in the decreasing population category disperse a near- significantly greater variety of seeds than those with growing population sizes (Chisq = 3.12, p = 0.077)
 
+
 ### model validation, analysis 2
 ```{r model validation analysis 2}
 
@@ -1063,7 +1076,8 @@ rm(sim.out.biome.deg.m2, biome.deg.m2)
 
 When run with the frugivore degree values minus 1 (to allow for zeros in the data), our data meets the negative binomial model assumptions. 
 
-### plot, analysis 2
+
+### figure, analysis 2
 
 * This is a boxplot of frugivore network degree at the biome-scale, split into frugivores in the higher risk (NT, VU, EN, CR) and lower risk (LC) IUCN categories
     + the mean values are added as black squares
@@ -1110,6 +1124,7 @@ rm(biome_bootstrap.temp, biome_bootstrap.DEC, biome_bootstrap.INC, biome_frug_po
 This plot shows frugivore degree frugivores belonging to populations that are shrinking globally and those that are currently growing. Bars show 95% CIs around the mean (which is shown as black point for each group), calculated from 1000 bootstrap iterations.
 
 
+
 ## Analysis 3
 
 Simulation of species removals. 
@@ -1117,7 +1132,16 @@ Simulation of species removals.
   + (1) A random removal scenario, then scenarios in which frugivores are removed in decreasing order of (2) endangerment status, (3) degree, and (4) body mass. 
   + Each scenario is run at the biome-scale and then replicated at the ecoregion scale
   + For random removal and within each endangerment status, 1000 iterations are run and then 1000 bootstraps are run to get 95% CIs (and the code for iteration steps takes a long time to run)
-  
+
+### Mean function used in bootstrapping
+
+```{r mean function}
+meanfun <- function(data, i){
+  d <- data[i, ]
+  return(mean(d))   
+} #function to take mean - boot package is interesting and you have to write your own function for the 'statistic' argument as far as I can tell
+```
+
 ### Random removal
 
 Examine co-extinctions of plant species and network robustness under 1000 simulations of randomly losing species
@@ -1196,18 +1220,12 @@ biome_plant_survivors_random<-as.data.frame(biome_plant_survivors_random_mat)
 # 'biome_plant_survivors_random' has the number of plants surviving at each removal step, for each iteration
 
 # clean
-rm(biome_plant_survivors_random_mat, biome_plant_survivors_random_df, biome_plant_survivors_vector_random_copy, new.mat.biome.random, s1.biome.random, temp_biome_random, triggerlist.biome.random,i, j, biome_survivors.ll, biome_robustness.ll)
+
+rm(i, j, s1.biome.random, triggerlist.biome.random, new.mat.biome.random, biome.survivors.ll, biome_plant_survivors_vector_random, biome.robustness.ll, biome_plant_survivors_vector_random_copy, biome_plant_survivors_random_df, temp_biome_random, biome_plant_survivors_random_mat) 
 
 ```
 
-```{r mean function}
-meanfun <- function(data, i){
-  d <- data[i, ]
-  return(mean(d))   
-} #function to take mean - boot package is interesting and you have to write your own function for the 'statistic' argument as far as I can tell
-```
-
-```{r biome bootstraps of means and 95% CIs for # of plant survivors per random frug removal, cache=TRUE}
+```{r biome bootstraps ci random removal, cache=TRUE}
 
 biome_random.means.boot<-list() #create empty list to store means
 
@@ -1224,7 +1242,7 @@ biome_plant_survivors_random<-biome_plant_survivors_random[,-c(1, 322)]
 
 for(i in 1:length(biome_plant_survivors_random)){
   
-  means.biome.random <- boot(biome_plant_survivors_random[i], R = 1000, statistic = meanfun) #bootstrap estimate of means for each column
+  means.biome.random <- boot(biome_plant_survivors_random[i], R = 1200, statistic = meanfun) #bootstrap estimate of means for each column
   
   biome.random.mean.int.95.BCa <- boot.ci(means.biome.random, conf = 0.95, type = "bca") #bootstrap's bias corrected confidence intervals
   
@@ -1243,21 +1261,23 @@ biome_random.means.boot<-biome_random.means.boot %>% add_row(mean = 0)
 biome_random.means.boot<-biome_random.means.boot %>% add_row(mean = 777,.before = 1)
 
 biome_random.lower.cis<-as.data.frame(unlist(biome_random.lower.cis))
-names(biome_random.lower.cis)[1]<-"lower.95.ci"
-biome_random.lower.cis<-biome_random.lower.cis %>% add_row(lower.95.ci = 0) 
-biome_random.lower.cis<-biome_random.lower.cis %>% add_row(lower.95.ci = 777, .before = 1)
+
+names(biome_random.lower.cis)[1]<-"lower_95.ci"
+biome_random.lower.cis<-biome_random.lower.cis %>% add_row(lower_95.ci = 0) 
+biome_random.lower.cis<-biome_random.lower.cis %>% add_row(lower_95.ci = 777, .before = 1)
 
 biome_random.upper.cis<-as.data.frame(unlist(biome_random.upper.cis))
-names(biome_random.upper.cis)[1]<-"upper.95.ci"
-biome_random.upper.cis<-biome_random.upper.cis %>% add_row(upper.95.ci = 0) 
-biome_random.upper.cis<-biome_random.upper.cis %>% add_row(upper.95.ci = 777, .before = 1)
+names(biome_random.upper.cis)[1]<-"upper_95.ci"
+biome_random.upper.cis<-biome_random.upper.cis %>% add_row(upper_95.ci = 0) 
+biome_random.upper.cis<-biome_random.upper.cis %>% add_row(upper_95.ci = 777, .before = 1)
 
 biome_plant_survivors_random_btstrped<-cbind(biome_random.means.boot, biome_random.upper.cis, biome_random.lower.cis)
 
 biome_plant_survivors_random_btstrped$n_frugs_removed<-seq(from = 0, to = 321) #for graphing, add column with the number frugivores removed per step to df
 
-# Clean
-rm(biome_random.means.boot, biome_random.lower.cis, biome_random.upper.cis, biome.random.mean.int.95.BCa)
+# clean
+
+rm(biome_random.means.boot, biome_random.upper.cis, biome_random.lower.cis, biome_plant_survivors_random, means.biome.random, i, biome.random.mean.int.95.BCa) 
 
 ```
 
@@ -1317,11 +1337,12 @@ araucaria_plant_survivors_random<-as.data.frame(araucaria_plant_survivors_random
 # 'araucaria_robustness_vector_random' is a vector of all the robustness values created during each removal over each iteration
 # 'araucaria_plant_survivors_random' is a big dataframe with the number of plants surviving at each removal step, for each iteration (N=1000)
 
-# clean:
-rm(araucaria_plant_survivors_random_mat, araucaria_plant_survivors_random_df, araucaria_plant_survivors_vector_random_copy, new.mat.araucaria.random, s1.araucaria.random, temp_araucaria_random, triggerlist.araucaria.random,i, j, araucaria_survivors.ll, araucaria_robustness.ll)
+# clean
+
+rm(i, j, s1.araucaria.random, triggerlist.araucaria.random, new.mat.araucaria.random, survivors.araucaria.random.ll, araucaria_plant_survivors_vector_random, robustness.araucaria.random.ll, araucaria_plant_survivors_vector_random_copy, araucaria_plant_survivors_random_df, temp_araucaria_random, araucaria_plant_survivors_random_mat)
 ```
 
-```{r araucaria bootstraps of means and 95% CIs for # of plant survivors per random frug removal, cache=TRUE}
+```{r araucaria bootstraps cis random removal, cache=TRUE}
 # same process as above with biome
 araucaria_random.means.boot<-list()
 araucaria_random.upper.cis<-list() 
@@ -1331,7 +1352,7 @@ araucaria_plant_survivors_random<-araucaria_plant_survivors_random[,-c(1,132)]
 
 for(i in 1:length(araucaria_plant_survivors_random)){
   
-  means.araucaria.random <- boot(araucaria_plant_survivors_random[i], R = 1000, statistic = meanfun) 
+  means.araucaria.random <- boot(araucaria_plant_survivors_random[i], R = 1200, statistic = meanfun) 
   
   mean.ar.random.int.95.BCa <- boot.ci(means.araucaria.random, conf = 0.95, type = "bca") 
   
@@ -1361,8 +1382,9 @@ araucaria_random.upper.cis<-araucaria_random.upper.cis %>% add_row(upper.95.ci =
 araucaria_plant_survivors_random_btstrped<-cbind(araucaria_random.means.boot, araucaria_random.upper.cis, araucaria_random.lower.cis)
 araucaria_plant_survivors_random_btstrped$n_frugs_removed<-seq(from = 0, to = 131)
 
-# Clean
-rm(araucaria_random.means.boot, araucaria_random.lower.cis, araucaria_random.upper.cis, araucaria.random.mean.int.95.BCa)
+# clean
+
+rm(araucaria_random.means.boot, araucaria_random.lower.cis, araucaria_random.upper.cis, mean.ar.random.int.95.BCa, means.araucaria.random, i, araucaria_plant_survivors_random)
 ```
 
 ##### Cerrado
@@ -1435,10 +1457,10 @@ cerrado_plant_survivors_random<-as.data.frame(cerrado_plant_survivors_random_mat
 # 'cerrado_plant_survivors_random' is a big dataframe with the number of plants surviving at each removal step, for each iteration (N=1000)
 
 # clean:
-rm(cerrado_plant_survivors_random_mat, cerrado_plant_survivors_random_df, cerrado_plant_survivors_vector_random_copy, new.mat.cerrado.random, s1.cerrado.random, temp_cerrado_random, triggerlist.cerrado.random,i, j, cerrado_survivors.ll, cerrado_robustness.ll)
+rm(i, j, s1.cerrado.random, triggerlist.cerrado.random, new.mat.cerrado.random, survivors.cerrado.random.ll, cerrado_plant_survivors_vector_random, robustness.cerrado.random.ll, cerrado_plant_survivors_vector_random_copy, cerrado_plant_survivors_random_df, temp_cerrado_random, cerrado_plant_survivors_random_mat)
 ```
 
-```{r cerrado bootstraps of means and 95% CIs for # of plant survivors per random frug removal, cache=TRUE}
+```{r cerrado bootstrap cis random frug removal, cache=TRUE}
 
 cerrado_random.means.boot<-list() #create empty list to store means
 cerrado_random.upper.cis<-list() #create empty list to store upper CI's
@@ -1451,7 +1473,7 @@ cerrado_plant_survivors_random<-cerrado_plant_survivors_random[,-c(1,92)]
 
 for(i in 1:length(cerrado_plant_survivors_random)){
   
-  means.cerrado.random <- boot(cerrado_plant_survivors_random[i], R = 1000, statistic = meanfun) #bootstrap estimate of means for each column
+  means.cerrado.random <- boot(cerrado_plant_survivors_random[i], R = 1200, statistic = meanfun) #bootstrap estimate of means for each column
   
   cerrado.random.mean.int.95.BCa <- boot.ci(means.cerrado.random, conf = 0.95, type = "bca") #bootstrap's bias corrected confidence intervals
   
@@ -1483,8 +1505,9 @@ cerrado_random.upper.cis<-cerrado_random.upper.cis %>% add_row(upper.95.ci = 55,
 cerrado_plant_survivors_random_btstrped<-cbind(cerrado_random.means.boot, cerrado_random.upper.cis, cerrado_random.lower.cis)
 cerrado_plant_survivors_random_btstrped$n_frugs_removed<-seq(from = 0, to = 91)
 
-# Clean
-rm(cerrado_random.means.boot, cerrado_random.lower.cis, cerrado_random.upper.cis, cerrado.random.mean.int.95.BCa)
+# clean
+
+rm(cerrado_random.means.boot, cerrado_random.lower.cis, cerrado_random.upper.cis, cerrado.random.mean.int.95.BCa, cerrado_plant_survivors_random, means.cerrado.random, i)
 
 ```
 
@@ -1559,11 +1582,12 @@ serra.do.mar_plant_survivors_random<-as.data.frame(serra.do.mar_plant_survivors_
 
 # 'serra.do.mar_plant_survivors_random' is a big dataframe with the number of plants surviving at each removal step, for each iteration (N=1000)
 
-# clean:
-rm(serra.do.mar_plant_survivors_random_mat, serra.do.mar_plant_survivors_random_df, serra.do.mar_plant_survivors_vector_random_copy, new.mat.serra.do.mar.random, s1.serra.do.mar.random, temp_serra.do.mar_random, triggerlist.serra.do.mar.random,i, j, serra.do.mar_survivors.ll, serra.do.mar_robustness.ll)
+# clean
+
+rm(i, j, s1.serra.do.mar.random, triggerlist.serra.do.mar.random, new.mat.serra.do.mar.random, survivors.serra.do.mar.random.ll, serra.do.mar_plant_survivors_vector_random, robustness.serra.do.mar.random.ll, serra.do.mar_plant_survivors_vector_random_copy, serra.do.mar_plant_survivors_random_df, temp_serra.do.mar_random, serra.do.mar_plant_survivors_random_mat)
 ```
 
-```{r serra.do.mar bootstraps of means and 95% CIs for # of plant survivors per random frug removal, cache=TRUE}
+```{r serra.do.mar bootstraps cis random frug, cache=TRUE}
 
 serra.do.mar_random.means.boot<-list() #create empty list to store means
 serra.do.mar_random.upper.cis<-list() #create empty list to store upper CI's
@@ -1576,7 +1600,7 @@ serra.do.mar_plant_survivors_random<-serra.do.mar_plant_survivors_random[,-c(1,1
 
 for(i in 1:length(serra.do.mar_plant_survivors_random)){
   
-  means.serra.do.mar.random <- boot(serra.do.mar_plant_survivors_random[i], R = 1000, statistic = meanfun) #bootstrap estimate of means for each column
+  means.serra.do.mar.random <- boot(serra.do.mar_plant_survivors_random[i], R = 1200, statistic = meanfun) #bootstrap estimate of means for each column
   
   serra.do.mar.random.mean.int.95.BCa <- boot.ci(means.serra.do.mar.random, conf = 0.95, type = "bca") #bootstrap's bias corrected confidence intervals
   
@@ -1610,8 +1634,9 @@ serra.do.mar_plant_survivors_random_btstrped <- cbind(serra.do.mar_random.means.
 
 serra.do.mar_plant_survivors_random_btstrped$n_frugs_removed<-length(seq(from = 0, to = 173))
 
-# Clean
-rm(serra.do.mar_random.means.boot, serra.do.mar_random.lower.cis, serra.do.mar_random.upper.cis, serra.do.mar.random.mean.int.95.BCa)
+# clean
+
+rm(serra.do.mar_random.means.boot, serra.do.mar_random.lower.cis, serra.do.mar_random.upper.cis, serra.do.mar_plant_survivors_random, serra.do.mar.random.mean.int.95.BCa, means.serra.do.mar.random, i)
 ```
 
 ##### Mata Caducifolia
@@ -1682,11 +1707,12 @@ mata.caducifolia_plant_survivors_random<-as.data.frame(mata.caducifolia_plant_su
 
 # 'mata.caducifolia_plant_survivors_random' is a big dataframe with the number of plants surviving at each removal step, for each iteration (N=1000)
 
-# clean:
-rm(mata.caducifolia_plant_survivors_random_mat, mata.caducifolia_plant_survivors_random_df, mata.caducifolia_plant_survivors_vector_random_copy, new.mat.mata.caducifolia.random, s1.mata.caducifolia.random, temp_mata.caducifolia_random, triggerlist.mata.caducifolia.random,i, j, mata.caducifolia_survivors.ll, mata.caducifolia_robustness.ll)
+# clean
+
+rm(i, j, s1.mata.caducifolia.random, triggerlist.mata.caducifolia.random, survivors.mata.caducifolia.random.ll, mata.caducifolia_plant_survivors_vector_random, robustness.mata.caducifolia.random.ll, mata.caducifolia_plant_survivors_vector_random_copy, mata.caducifolia_plant_survivors_random_df, temp_mata.caducifolia_random, mata.caducifolia_plant_survivors_random_mat)
 ```
 
-```{r mata.caducifolia bootstraps of means and 95% CIs for # of plant survivors per random frug removal, cache=TRUE}
+```{r mata.caducifolia bootstrap cis random removal, cache=TRUE}
 
 mata.caducifolia_random.means.boot<-list() #create empty list to store means
 
@@ -1702,7 +1728,7 @@ mata.caducifolia_plant_survivors_random<-mata.caducifolia_plant_survivors_random
 
 for(i in 1:length(mata.caducifolia_plant_survivors_random)){
   
-  mata.caducifolia.random.means <- boot(mata.caducifolia_plant_survivors_random[i], R = 1000, statistic = meanfun) #bootstrap estimate of means for each column
+  mata.caducifolia.random.means <- boot(mata.caducifolia_plant_survivors_random[i], R = 1200, statistic = meanfun) #bootstrap estimate of means for each column
   
   mata.caducifolia.random.mean.int.95.BCa <- boot.ci(mata.caducifolia.random.means, conf = 0.95, type = "bca") #bootstrap's bias corrected confidence intervals
   
@@ -1735,8 +1761,9 @@ mata.caducifolia_random.upper.cis<-mata.caducifolia_random.upper.cis %>% add_row
 mata.caducifolia_plant_survivors_random_btstrped<-cbind(mata.caducifolia_random.means.boot, mata.caducifolia_random.upper.cis, mata.caducifolia_random.lower.cis)
 mata.caducifolia_plant_survivors_random_btstrped$n_frugs_removed<-seq(from = 0, to = 84)
 
-# Clean
-rm(mata.caducifolia_random.means.boot, mata.caducifolia_random.lower.cis, mata.caducifolia_random.upper.cis, mata.caducifolia.random.mean.int.95.BCa)
+# clean
+
+rm(mata.caducifolia_random.means.boot, mata.caducifolia_random.lower.cis, mata.caducifolia_random.upper.cis, mata.caducifolia_plant_survivors_random, mata.caducifolia.random.mean.int.95.BCa, mata.caducifolia.random.means, i)
 
 ```
 
@@ -1749,133 +1776,261 @@ Examine co-extinctions of plant species and network robustness under a frugivore
     
 #### Biome-scale endangerment-status-based removal simulations and bootstrapping CIs
 
+```{r biome iucn based removals, cache = TRUE}
+
+rob.vec.IUCN <- rep(NA, 1000)
+
+vec.survivors.IUCN.ll<- list()
+
+for(j in 1:1000) {s1 <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frug_IUCN == "CR")])
+triggerlist1 <- list()
+  for(i in 1:length(s1)) {
+    triggerlist1[[i]] <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frugivore_Species == s1[i])], length(which(biome_frug_md$Frugivore_Species == s1[i])))
+  }
+  triggerlist1 <- unlist(triggerlist1)
+  
+  triggerlist1 <- as.character(triggerlist1)
+  
+  #-----------------------------------------#
+s2 <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frug_IUCN == "EN")])
+triggerlist2 <- list()
+  for(i in 1:length(s2)) {
+    triggerlist2[[i]] <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frugivore_Species == s2[i])], length(which(biome_frug_md$Frugivore_Species == s2[i])))
+  }
+  triggerlist2 <- unlist(triggerlist2)
+  
+  triggerlist2 <- as.character(triggerlist2)
+    #-----------------------------------------#
+  s3 <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frug_IUCN == "VU")])
+triggerlist3 <- list()
+  for(i in 1:length(s3)) {
+    triggerlist3[[i]] <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frugivore_Species == s3[i])], length(which(biome_frug_md$Frugivore_Species == s3[i])))
+  }
+  triggerlist3 <- unlist(triggerlist3)
+  
+  triggerlist3 <- as.character(triggerlist3)
+    #-----------------------------------------#
+  s4 <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frug_IUCN == "NT")])
+triggerlist4 <- list()
+  for(i in 1:length(s4)) {
+    triggerlist4[[i]] <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frugivore_Species == s4[i])], length(which(biome_frug_md$Frugivore_Species == s4[i])))
+  }
+  triggerlist4 <- unlist(triggerlist4)
+  
+  triggerlist4 <- as.character(triggerlist4)
+    #-----------------------------------------#
+  #s5 should be those that are least concern AND declining in population
+  s5 <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frug_IUCN == "LC" & biome_frug_md$Frug_Population_Trend == "Decreasing")])
+triggerlist5 <- list()
+  for(i in 1:length(s5)) {
+    triggerlist5[[i]] <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frugivore_Species == s5[i])], length(which(biome_frug_md$Frugivore_Species == s5[i])))
+  }
+  triggerlist5 <- unlist(triggerlist5)
+  
+  triggerlist5 <- as.character(triggerlist5)
+  #-----------------------------------------#
+  #s6 should be those that are LC and have a stable population trend
+  s6 <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frug_IUCN == "LC" & biome_frug_md$Frug_Population_Trend == "Stable")])
+triggerlist6 <- list()
+  for(i in 1:length(s6)) {
+    triggerlist6[[i]] <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frugivore_Species == s6[i])], length(which(biome_frug_md$Frugivore_Species == s6[i])))
+  }
+  triggerlist6 <- unlist(triggerlist6)
+  
+  triggerlist6 <- as.character(triggerlist6)
+  #------------------------------------------#
+  #s7 should be those that are LC and have an increasing population trend
+   s7 <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frug_IUCN == "LC" & biome_frug_md$Frug_Population_Trend == "Increasing")])
+triggerlist7 <- list()
+  for(i in 1:length(s7)) {
+    triggerlist7[[i]] <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frugivore_Species == s7[i])], length(which(biome_frug_md$Frugivore_Species == s7[i])))
+  }
+  triggerlist7 <- unlist(triggerlist7)
+  
+  triggerlist7 <- as.character(triggerlist7)
+  #------------------------------------------#
+  #s8 should be those that are LC and have an unknown population trend
+   s8 <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frug_IUCN == "LC" & biome_frug_md$Frug_Population_Trend == "Unknown")])
+triggerlist8 <- list()
+  for(i in 1:length(s8)) {
+    triggerlist8[[i]] <- sample(biome_frug_md$Frugivore_Species[which(biome_frug_md$Frugivore_Species == s8[i])], length(which(biome_frug_md$Frugivore_Species == s8[i])))
+  }
+  triggerlist8 <- unlist(triggerlist8)
+  
+  triggerlist8 <- as.character(triggerlist8)
+  #------------------------------------------#
+  #add trigger lists together to make 1 trigger list
+  triggerlist <- c(triggerlist1, triggerlist2, triggerlist3, triggerlist4, triggerlist5, triggerlist6, triggerlist7, triggerlist8)
+  #-----------------------------------------#
+  new.mat<-list() #making an empty new object
+  
+  new.mat[[1]]<-biome.mat #specifying the first element will be the original, full matrix
+  
+  for(i in 1:length(triggerlist)) {
+    mat <- new.mat[[i]]
+    mat[ ,which(colnames(mat) == triggerlist[i])]<-0
+    new.mat[[i+1]] <- mat
+  }
+  
+  survivors.ll <-NULL
+  survivors.ll[[1]] <- nrow(biome.mat)
+  
+  for(i in 1:length(new.mat)) {survivors.ll[i] <- length(which(rowSums(new.mat[[i]])>0))}
+  
+  vec.survivors.IUCN.ll[[j]]<-survivors.ll
+  
+  unlist(survivors.ll)
+  
+  Robustness.ll <-(sum(unlist(survivors.ll)))/((ncol(biome.mat))*(nrow(biome.mat)))
+  
+  rob.vec.IUCN[j] <- Robustness.ll
+}
+
+#extract survivor values into a workable form
+
+vec.survivors.IUCN.ll_copy <- vec.survivors.IUCN.ll
+biome_plant_survivors_IUCN_df<-as.data.frame(seq(from = 0, to = 321))
+
+for(i in 1:length(vec.survivors.IUCN.ll_copy)) {temp_biome_IUCN<-unlist(vec.survivors.IUCN.ll_copy[[i]])
+biome_plant_survivors_IUCN_df[,i]<-temp_biome_IUCN}
+
+biome_plant_survivors_IUCN_mat<-as.matrix(biome_plant_survivors_IUCN_df)
+biome_plant_survivors_IUCN_mat<-t(biome_plant_survivors_IUCN_mat)
+biome_plant_survivors_IUCN<-as.data.frame(biome_plant_survivors_IUCN_mat)
+
+# clean
+
+rm(biome_plant_survivors_IUCN_mat, biome_plant_survivors_IUCN_df, Robustness.ll, survivors.ll, vec.survivors.IUCN.ll, vec.survivors.IUCN.ll_copy, i, j, new.mat, mat, triggerlist, triggerlist1, triggerlist2, triggerlist3, triggerlist4, triggerlist5, triggerlist6, triggerlist7, triggerlist8, rob.vec.IUCN, s1, s2, s3, s4, s5, s6, s7, s8, temp_biome_IUCN)
+```
+
+```{r biome iucn based removals bootstrapping, cache = TRUE}
+biome_IUCN_means_boot<-list() #create empty list to store means
+
+biome_IUCN_upper_cis<-list() #create empty list to store upper CI's
+
+biome_IUCN_lower_cis<-list() #crate empty list to store lower CI's
+
+biome_plant_survivors_IUCN <- biome_plant_survivors_IUCN[,-c(1, 6, 16, 26, 45, 116, 264, 293, 322)]
+
+
+for(i in 1:length(biome_plant_survivors_IUCN)){
+  
+  means <- boot(biome_plant_survivors_IUCN[i], R = 1200, statistic = meanfun)
+  
+  mean.int.95.BCa <- boot.ci(means, conf = 0.95, type = "bca") 
+  
+  biome_IUCN_lower_cis[[i+1]]<-mean.int.95.BCa$bca[1,4] 
+  biome_IUCN_upper_cis[[i+1]]<-mean.int.95.BCa$bca[1,5] 
+  biome_IUCN_means_boot[[i+1]] <- means$t0  
+}
+
+biome_IUCN_means_boot<-as.data.frame(unlist(biome_IUCN_means_boot))
+names(biome_IUCN_means_boot)[1]<-"mean"
+
+biome_IUCN_means_boot<-biome_IUCN_means_boot %>% add_row(mean = 777, .before = 1)
+biome_IUCN_means_boot<-biome_IUCN_means_boot %>% add_row(mean = 730, .before = 6) 
+biome_IUCN_means_boot<-biome_IUCN_means_boot %>% add_row(mean = 628, .before = 16) 
+biome_IUCN_means_boot<-biome_IUCN_means_boot %>% add_row(mean = 598, .before = 26) 
+biome_IUCN_means_boot<-biome_IUCN_means_boot %>% add_row(mean = 574, .before = 45) 
+biome_IUCN_means_boot<-biome_IUCN_means_boot %>% add_row(mean = 499, .before = 116)
+biome_IUCN_means_boot<-biome_IUCN_means_boot %>% add_row(mean = 191, .before = 264)
+biome_IUCN_means_boot<-biome_IUCN_means_boot %>% add_row(mean = 100, .before = 293)
+biome_IUCN_means_boot<-biome_IUCN_means_boot %>% add_row(mean = 0) 
+
+biome_IUCN_lower_cis<-as.data.frame(unlist(biome_IUCN_lower_cis))
+names(biome_IUCN_lower_cis)[1]<-"lower_95.ci"
+
+biome_IUCN_lower_cis<-biome_IUCN_lower_cis %>% add_row(lower_95.ci = 777, .before = 1) 
+biome_IUCN_lower_cis<-biome_IUCN_lower_cis %>% add_row(lower_95.ci = 730, .before = 6) 
+biome_IUCN_lower_cis<-biome_IUCN_lower_cis %>% add_row(lower_95.ci = 628, .before = 16) 
+biome_IUCN_lower_cis<-biome_IUCN_lower_cis %>% add_row(lower_95.ci = 598, .before = 26) 
+biome_IUCN_lower_cis<-biome_IUCN_lower_cis %>% add_row(lower_95.ci = 574, .before = 45) 
+biome_IUCN_lower_cis<-biome_IUCN_lower_cis %>% add_row(lower_95.ci = 499, .before = 116)
+biome_IUCN_lower_cis<-biome_IUCN_lower_cis %>% add_row(lower_95.ci = 191, .before = 264)
+biome_IUCN_lower_cis<-biome_IUCN_lower_cis %>% add_row(lower_95.ci = 100, .before = 293)
+biome_IUCN_lower_cis<-biome_IUCN_lower_cis %>% add_row(lower_95.ci = 0) 
+
+biome_IUCN_upper_cis<-as.data.frame(unlist(biome_IUCN_upper_cis))
+names(biome_IUCN_upper_cis)[1]<-"upper_95.ci"
+
+biome_IUCN_upper_cis<-biome_IUCN_upper_cis %>% add_row(upper_95.ci = 777, .before = 1) 
+biome_IUCN_upper_cis<-biome_IUCN_upper_cis %>% add_row(upper_95.ci = 730, .before = 6) 
+biome_IUCN_upper_cis<-biome_IUCN_upper_cis %>% add_row(upper_95.ci = 628, .before = 16) 
+biome_IUCN_upper_cis<-biome_IUCN_upper_cis %>% add_row(upper_95.ci = 598, .before = 26) 
+biome_IUCN_upper_cis<-biome_IUCN_upper_cis %>% add_row(upper_95.ci = 574, .before = 45) 
+biome_IUCN_upper_cis<-biome_IUCN_upper_cis %>% add_row(upper_95.ci = 499, .before = 116)
+biome_IUCN_upper_cis<-biome_IUCN_upper_cis %>% add_row(upper_95.ci = 191, .before = 264)
+biome_IUCN_upper_cis<-biome_IUCN_upper_cis %>% add_row(upper_95.ci = 100, .before = 293)
+biome_IUCN_upper_cis<-biome_IUCN_upper_cis %>% add_row(upper_95.ci = 0) 
+
+biome_plant_survivors_IUCN_btstrped<-cbind(biome_IUCN_means_boot, biome_IUCN_upper_cis, biome_IUCN_lower_cis)
+
+biome_plant_survivors_IUCN_btstrped$n_frugs_removed<-seq(from = 0, to = 321)
+
+# clean
+
+rm(means, mean.int.95.BCa, i, biome_IUCN_lower_cis, biome_IUCN_upper_cis, biome_IUCN_means_boot, biome_plant_survivors_IUCN, temp_biome_IUCN)
+```
+
+
 #### Ecoregion-scale endangerment-status-based removal simulations and boostrapping CIs
 
 ##### Araucaria
 
 ```{r araucaria iucn based removals, cache=TRUE}
+AR_robustness_vec_IUCN <- rep(NA, 1000)
 
-araucaria_robustness_vector_IUCN <- rep(NA, 1000)
+AR_plant_survivors_vec_IUCN<- list()
 
-araucaria_plant_survivors_vector_IUCN<- list()
+for(j in 1:1000) {
+AR_IUCN_s1 <- c(sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "CR")]), sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "EN")]), sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "VU")]), sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "NT")]), sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "LC" & araucaria_frug_md$Frug_Population_Trend == "Decreasing")]), sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "LC" & araucaria_frug_md$Frug_Population_Trend == "Unknown")]), sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "LC" & araucaria_frug_md$Frug_Population_Trend == "Stable")]), sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "LC" & araucaria_frug_md$Frug_Population_Trend == "Increasing")]))
 
-for(j in 1:1000) {araucaria.s1 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "CR")])
-araucaria.triggerlist1 <- list()
-  for(i in 1:length(araucaria.s1)) {
-    araucaria.triggerlist1[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s1[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s1[i])))
+AR.triggerlist.IUCN <- list()
+  for(i in 1:length(AR_IUCN_s1)) {
+    AR.triggerlist.IUCN[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == AR_IUCN_s1[i])], length(which(araucaria_frug_md$Frugivore_Species == AR_IUCN_s1[i])))
   }
-  araucaria.triggerlist1 <- unlist(araucaria.triggerlist1)
+  AR.triggerlist.IUCN <- unlist(AR.triggerlist.IUCN)
   
-  araucaria.triggerlist1 <- as.character(araucaria.triggerlist1)
-  
+  AR.triggerlist.IUCN <- as.character(AR.triggerlist.IUCN)
   #-----------------------------------------#
-araucaria.s2 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "EN")])
-araucaria.triggerlist2 <- list()
-  for(i in 1:length(araucaria.s2)) {
-    araucaria.triggerlist2[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s2[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s2[i])))
-  }
-  araucaria.triggerlist2 <- unlist(araucaria.triggerlist2)
+  AR.new.mat<-list() #making an empty AR.new object
   
-  araucaria.triggerlist2 <- as.character(araucaria.triggerlist2)
-    #-----------------------------------------#
-  araucaria.s3 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "VU")])
-araucaria.triggerlist3 <- list()
-  for(i in 1:length(araucaria.s3)) {
-    araucaria.triggerlist3[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s3[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s3[i])))
-  }
-  araucaria.triggerlist3 <- unlist(araucaria.triggerlist3)
+  AR.new.mat[[1]]<-mat.araucaria #specifying the first element will be the original, full matrix
   
-  araucaria.triggerlist3 <- as.character(araucaria.triggerlist3)
-    #-----------------------------------------#
-  araucaria.s4 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "NT")])
-araucaria.triggerlist4 <- list()
-  for(i in 1:length(araucaria.s4)) {
-    araucaria.triggerlist4[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s4[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s4[i])))
-  }
-  araucaria.triggerlist4 <- unlist(araucaria.triggerlist4)
-  
-  araucaria.triggerlist4 <- as.character(araucaria.triggerlist4)
-    #-----------------------------------------#
-  #araucaria.s5 should be those that are least concern AND declining in population
-  araucaria.s5 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "LC" & araucaria_frug_md$Frug_Population_Trend == "Decreasing")])
-araucaria.triggerlist5 <- list()
-  for(i in 1:length(araucaria.s5)) {
-    araucaria.triggerlist5[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s5[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s5[i])))
-  }
-  araucaria.triggerlist5 <- unlist(araucaria.triggerlist5)
-  
-  araucaria.triggerlist5 <- as.character(araucaria.triggerlist5)
-  #-----------------------------------------#
-  #araucaria.s6 should be those that are LC and have a stable population trend
-  araucaria.s6 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "LC" & araucaria_frug_md$Frug_Population_Trend == "Stable")])
-araucaria.triggerlist6 <- list()
-  for(i in 1:length(araucaria.s6)) {
-    araucaria.triggerlist6[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s6[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s6[i])))
-  }
-  araucaria.triggerlist6 <- unlist(araucaria.triggerlist6)
-  
-  araucaria.triggerlist6 <- as.character(araucaria.triggerlist6)
-  #------------------------------------------#
-  #araucaria.s7 should be those that are LC and have an increasing population trend
-   araucaria.s7 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "LC" & araucaria_frug_md$Frug_Population_Trend == "Increasing")])
-araucaria.triggerlist7 <- list()
-  for(i in 1:length(araucaria.s7)) {
-    araucaria.triggerlist7[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s7[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s7[i])))
-  }
-  araucaria.triggerlist7 <- unlist(araucaria.triggerlist7)
-  
-  araucaria.triggerlist7 <- as.character(araucaria.triggerlist7)
-  #------------------------------------------#
-  #araucaria.s8 should be those that are LC and have an unknown population trend
-   araucaria.s8 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "LC" & araucaria_frug_md$Frug_Population_Trend == "Unknown")])
-araucaria.triggerlist8 <- list()
-  for(i in 1:length(araucaria.s8)) {
-    araucaria.triggerlist8[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s8[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s8[i])))
-  }
-  araucaria.triggerlist8 <- unlist(araucaria.triggerlist8)
-  
-  araucaria.triggerlist8 <- as.character(araucaria.triggerlist8)
-  #------------------------------------------#
-  #add trigger lists together to make 1 trigger list
-  araucaria.triggerlist <- c(araucaria.triggerlist1, araucaria.triggerlist2, araucaria.triggerlist3, araucaria.triggerlist4, araucaria.triggerlist5, araucaria.triggerlist6, araucaria.triggerlist7, araucaria.triggerlist8)
-  #-----------------------------------------#
-  araucaria.new.mat<-list() #making an empty araucaria.new object
-  
-  araucaria.new.mat[[1]]<-mat.araucaria #specifying the first element will be the original, full matrix
-  
-  for(i in 1:length(araucaria.triggerlist)) {
-    araucaria.mat <- araucaria.new.mat[[i]]
-    araucaria.mat[ ,which(colnames(araucaria.mat) == araucaria.triggerlist[i])]<-0
-    araucaria.new.mat[[i+1]] <- araucaria.mat
+  for(i in 1:length(AR.triggerlist.IUCN)) {
+    AR.mat <- AR.new.mat[[i]]
+    AR.mat[ ,which(colnames(AR.mat) == AR.triggerlist.IUCN[i])]<-0
+    AR.new.mat[[i+1]] <- AR.mat
   }
   
-  araucaria.survivors.ll <-NULL
-  araucaria.survivors.ll[[1]] <- nrow(mat.araucaria)
+  AR.survivors.ll <-NULL
+  AR.survivors.ll[[1]] <- nrow(mat.araucaria)
   
-  for(i in 1:length(araucaria.new.mat)) {araucaria.survivors.ll[i] <- length(which(rowSums(araucaria.new.mat[[i]])>0))}
+  for(i in 1:length(AR.new.mat)) {AR.survivors.ll[i] <- length(which(rowSums(AR.new.mat[[i]])>0))}
   
-  araucaria_plant_survivors_vector_IUCN[[j]]<-araucaria.survivors.ll
+  AR_plant_survivors_vec_IUCN[[j]]<-AR.survivors.ll
   
-  unlist(araucaria.survivors.ll)
+  unlist(AR.survivors.ll)
   
-  araucaria.robustness.ll <-(sum(unlist(araucaria.survivors.ll)))/((ncol(mat.araucaria))*(nrow(mat.araucaria)))
+  AR.robustness.ll <-(sum(unlist(AR.survivors.ll)))/((ncol(mat.araucaria))*(nrow(mat.araucaria)))
   
-  araucaria_robustness_vector_IUCN[j] <- araucaria.robustness.ll
+  AR_robustness_vec_IUCN[j] <- AR.robustness.ll
 }
 
 #extract survivor values into a workable form
 
-araucaria_plant_survivors_vector_IUCN_copy <- araucaria_plant_survivors_vector_IUCN
-araucaria_plant_survivors_IUCN_df<-as.data.frame(seq(from = 0, to = 131))
-for(i in 1:length(araucaria_plant_survivors_vector_IUCN_copy)) {temp_araucaria_IUCN<-unlist(araucaria_plant_survivors_vector_IUCN_copy[[i]])
-araucaria_plant_survivors_IUCN_df[,i]<-temp_araucaria_IUCN}
+AR_plant_survivors_vec_IUCN_copy <- AR_plant_survivors_vec_IUCN
+AR_plant_survivors_IUCN_df<-as.data.frame(seq(from = 0, to = 131))
+for(i in 1:length(AR_plant_survivors_vec_IUCN_copy)) {temp_AR_IUCN<-unlist(AR_plant_survivors_vec_IUCN_copy[[i]])
+AR_plant_survivors_IUCN_df[,i]<-temp_AR_IUCN}
 
-araucaria_plant_survivors_IUCN_mat<-as.matrix(araucaria_plant_survivors_IUCN_df)
-araucaria_plant_survivors_IUCN_mat<-t(araucaria_plant_survivors_IUCN_mat)
-araucaria_plant_survivors_IUCN<-as.data.frame(araucaria_plant_survivors_IUCN_mat)
+AR_plant_survivors_IUCN_mat<-as.matrix(AR_plant_survivors_IUCN_df)
+AR_plant_survivors_IUCN_mat<-t(AR_plant_survivors_IUCN_mat)
+AR_plant_survivors_IUCN<-as.data.frame(AR_plant_survivors_IUCN_mat)
 
 # clean
-rm(i, j, temp_araucaria_IUCN, araucaria.robustness.ll, araucaria_plant_survivors_vector_IUCN,araucaria.survivors.ll, araucaria.new.mat, araucaria.mat, araucaria.triggerlist1, araucaria.triggerlist2, araucaria.triggerlist3, araucaria.triggerlist4, araucaria.triggerlist5, araucaria.triggerlist6, araucaria.triggerlist7, araucaria.triggerlist8, araucaria.s1, araucaria.s2, araucaria.s3, araucaria.s4, araucaria.s5, araucaria.s6, araucaria.s7, araucaria.s8)
+
+rm(AR_plant_survivors_vec_IUCN_copy, AR_plant_survivors_IUCN_df, AR_plant_survivors_IUCN_mat, AR.robustness.ll,AR.survivors.ll, AR.new.mat, temp_AR_IUCN, AR.triggerlist.IUCN, AR_IUCN_s1, AR_plant_survivors_vec_IUCN)
 ```
 
 ```{r araucaria iucn based removals bootstrapping, cache=TRUE}
@@ -1886,9 +2041,13 @@ araucaria_IUCN_upper_cis<-list() #create empty list to store upper CI's
 
 araucaria_IUCN_lower_cis<-list() #crate empty list to store lower CI's
 
-for(i in 1:length(araucaria_plant_survivors_IUCN)){
+# per categorical removal step, there is no variation in final coextinction value bc no matter what ORDER frugivores are removed, in the end, the same frugivores are all absent from the network after a given category is completely extinct (even tho the order in which those frugs go extinct WITHIN that category is randomized per iteration of the simulation). We cannot bootstrap when there is no variation in network coextinction value, so I am pulling out those end point values below and manually adding them back to the resulting bootstrapped dataframe:
+
+AR_plant_survivors_IUCN <- AR_plant_survivors_IUCN[,-c(1, 3, 5, 9, 16, 44, 53, 124, 132)]
+
+for(i in 1:length(AR_plant_survivors_IUCN)){
   
-  means <- boot(araucaria_plant_survivors_IUCN[i], R = 1000, statistic = meanfun) #bootstrap estimate of means for each column
+  means <- boot(AR_plant_survivors_IUCN[i], R = 1200, statistic = meanfun) #bootstrap estimate of means for each column
   
   mean.int.95.BCa <- boot.ci(means, conf = 0.95, type = "bca") #bootstrap's bias corrected confidence intervals
   
@@ -1896,229 +2055,976 @@ for(i in 1:length(araucaria_plant_survivors_IUCN)){
   araucaria_IUCN_upper_cis[[i+1]]<-mean.int.95.BCa$bca[1,5] #same with upper ci
   araucaria_IUCN_means_boot[[i+1]] <- means$t0  
 }
-```
 
-```{r combining araucaria iucn based removals bootstrapped results}
+# add the non-variation values back in and combine araucaria iucn based removals bootstrapped values
+ 
 araucaria_IUCN_means_boot<-as.data.frame(unlist(araucaria_IUCN_means_boot))
 names(araucaria_IUCN_means_boot)[1]<-"mean"
 
-araucaria_IUCN_means_boot<-araucaria_IUCN_means_boot %>% add_row(mean = 0) 
 araucaria_IUCN_means_boot<-araucaria_IUCN_means_boot %>% add_row(mean = 228, .before = 1)
+araucaria_IUCN_means_boot<-araucaria_IUCN_means_boot %>% add_row(mean = 227, .before = 3) 
+araucaria_IUCN_means_boot<-araucaria_IUCN_means_boot %>% add_row(mean = 224, .before = 5) 
+araucaria_IUCN_means_boot<-araucaria_IUCN_means_boot %>% add_row(mean = 216, .before = 9) 
+araucaria_IUCN_means_boot<-araucaria_IUCN_means_boot %>% add_row(mean = 209, .before = 16) 
+araucaria_IUCN_means_boot<-araucaria_IUCN_means_boot %>% add_row(mean = 187, .before = 44)
+araucaria_IUCN_means_boot<-araucaria_IUCN_means_boot %>% add_row(mean = 184, .before = 53)
+araucaria_IUCN_means_boot<-araucaria_IUCN_means_boot %>% add_row(mean = 35, .before = 124)
+araucaria_IUCN_means_boot<-araucaria_IUCN_means_boot %>% add_row(mean = 0) 
 
 araucaria_IUCN_lower_cis<-as.data.frame(unlist(araucaria_IUCN_lower_cis))
 names(araucaria_IUCN_lower_cis)[1]<-"lower_95.ci"
 
-araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower_95.ci = 0) 
 araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower_95.ci = 228, .before = 1) 
+araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower_95.ci = 227, .before = 3) 
+araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower_95.ci = 224, .before = 5) 
+araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower_95.ci = 216, .before = 9) 
+araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower_95.ci = 209, .before = 16) 
+araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower_95.ci = 187, .before = 44)
+araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower_95.ci = 184, .before = 53)
+araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower_95.ci = 35, .before = 124)
+araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower_95.ci = 0) 
 
 araucaria_IUCN_upper_cis<-as.data.frame(unlist(araucaria_IUCN_upper_cis))
 names(araucaria_IUCN_upper_cis)[1]<-"upper_95.ci"
 
-araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper_95.ci = 0)
 araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper_95.ci = 228, .before = 1) 
+araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper_95.ci = 227, .before = 3) 
+araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper_95.ci = 224, .before = 5) 
+araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper_95.ci = 216, .before = 9) 
+araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper_95.ci = 209, .before = 16) 
+araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper_95.ci = 187, .before = 44)
+araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper_95.ci = 184, .before = 53)
+araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper_95.ci = 35, .before = 124)
+araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper_95.ci = 0) 
 
 araucaria_plant_survivors_IUCN_btstrped<-cbind(araucaria_IUCN_means_boot, araucaria_IUCN_upper_cis, araucaria_IUCN_lower_cis)
+
 araucaria_plant_survivors_IUCN_btstrped$n_frugs_removed<-seq(from = 0, to = 131)
+
+# clean
+
+rm(means, mean.int.95.BCa, i, araucaria_IUCN_lower_cis, araucaria_IUCN_upper_cis, araucaria_IUCN_means_boot, AR_plant_survivors_IUCN)
 ```
-
-```{r temp}
-# get it into a workable form
-# add column labels, first (0) and last values, combine dataframes
-# there are periodic points where bootstrapping fails (maybe bc there isn't enough variation in the values?), and I manually add those points in the dataframe by inserting whatever the mean was for that step in the removals
-
-araucaria_IUCN_means_boot<-as.data.frame(unlist(araucaria_IUCN_means_boot))
-names(araucaria_IUCN_means_boot)[1]<-"mean"
-araucaria_IUCN_means_boot<-araucaria_IUCN_means_boot %>% add_row(mean = 0) 
-
-araucaria_IUCN_means_boot.2 <- araucaria_IUCN_means_boot[-133,]
-araucaria_IUCN_means_boot.2 <- as.data.frame(unlist(araucaria_IUCN_means_boot.2))
-names(araucaria_IUCN_means_boot.2)[1]<-"mean"
-araucaria_IUCN_means_boot<-araucaria_IUCN_means_boot.2
-
-araucaria_IUCN_lower_cis<-as.data.frame(unlist(araucaria_IUCN_lower_cis))
-names(araucaria_IUCN_lower_cis)[1]<-"lower.95.ci"
-araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower.95.ci = 0) 
-araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower.95.ci = 228, .before = 1) 
-
-araucaria_IUCN_lower_cis.2 <- araucaria_IUCN_lower_cis[-c(127,1),]
-araucaria_IUCN_lower_cis <- as.data.frame(araucaria_IUCN_lower_cis.2)
-
-araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower.95.ci = 227, .before = 3) 
-
-araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower.95.ci = 224, .before = 4) 
-
-araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower.95.ci = 216, .before = 9)
-
-araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower.95.ci = 209, .before = 16) 
-
-araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower.95.ci = 187, .before = 44) 
-
-araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower.95.ci = 70, .before = 115) 
-
-araucaria_IUCN_lower_cis<-araucaria_IUCN_lower_cis %>% add_row(lower.95.ci = 40, .before = 123) 
-
-
-araucaria_IUCN_lower_cis<-as.data.frame(araucaria_IUCN_lower_cis)
-# end lower
-
-# repeat with upper:
-
-araucaria_IUCN_upper_cis<-as.data.frame(unlist(araucaria_IUCN_upper_cis))
-names(araucaria_IUCN_upper_cis)[1]<-"upper.95.ci"
-
-araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper.95.ci = 0) 
-araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper.95.ci = 228, .before = 1)
-
-
-araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper.95.ci = 227, .before = 3) 
-
-araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper.95.ci = 224, .before = 4) 
-
-araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper.95.ci = 216, .before = 9)
-
-araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper.95.ci = 209, .before = 16) 
-
-araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper.95.ci = 187, .before = 44) 
-
-araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper.95.ci = 70, .before = 115) 
-
-araucaria_IUCN_upper_cis<-araucaria_IUCN_upper_cis %>% add_row(upper.95.ci = 40, .before = 123) 
-# end adding missing CI vals to upper
-
-araucaria_IUCN_upper_cis<-as.data.frame(araucaria_IUCN_upper_cis)
-
-# put means, lower and upper CI into one df:
-araucaria_IUCN_plant_survivors_CIs<-cbind(araucaria_IUCN_means_boot, araucaria_IUCN_upper_cis, araucaria_IUCN_lower_cis)
-
-araucaria_IUCN_plant_survivors_CIs$n_frugs_removed<-seq(from = 0, to = 131) #for graphing, add number frugivores removed per step to df
-```
-
 
 ##### Cerrado
-##### Serra do Mar
-##### Mata Caducifolia
 
-```{r test}
-araucaria_robustness_vector_IUCN <- rep(NA, 1000)
+```{r cerrado iucn based removals, cache=TRUE}
+cerrado_robustness_vec_IUCN <- rep(NA, 1000)
 
-araucaria_plant_survivors_vector_IUCN<- list()
+cerrado_plant_survivors_vec_IUCN<- list()
 
-for(j in 1:10) {araucaria.s1 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "CR" | araucaria_frug_md$Frug_IUCN == "EN")])
-araucaria.triggerlist1 <- list()
-  for(i in 1:length(araucaria.s1)) {
-    araucaria.triggerlist1[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s1[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s1[i])))
+for(j in 1:1000) {
+cerrado_IUCN_s1 <- c(sample(cerrado_frug_md$Frugivore_Species[which(cerrado_frug_md$Frug_IUCN == "CR")]), sample(cerrado_frug_md$Frugivore_Species[which(cerrado_frug_md$Frug_IUCN == "EN")]), sample(cerrado_frug_md$Frugivore_Species[which(cerrado_frug_md$Frug_IUCN == "VU")]), sample(cerrado_frug_md$Frugivore_Species[which(cerrado_frug_md$Frug_IUCN == "LC" & cerrado_frug_md$Frug_Population_Trend == "Decreasing")]), sample(cerrado_frug_md$Frugivore_Species[which(cerrado_frug_md$Frug_IUCN == "LC" & cerrado_frug_md$Frug_Population_Trend == "Unknown")]), sample(cerrado_frug_md$Frugivore_Species[which(cerrado_frug_md$Frug_IUCN == "LC" & cerrado_frug_md$Frug_Population_Trend == "Stable")]), sample(cerrado_frug_md$Frugivore_Species[which(cerrado_frug_md$Frug_IUCN == "LC" & cerrado_frug_md$Frug_Population_Trend == "Increasing")]))
+
+cerrado_triggerlist.IUCN <- list()
+  for(i in 1:length(cerrado_IUCN_s1)) {
+    cerrado_triggerlist.IUCN[[i]] <- sample(cerrado_frug_md$Frugivore_Species[which(cerrado_frug_md$Frugivore_Species == cerrado_IUCN_s1[i])], length(which(cerrado_frug_md$Frugivore_Species == cerrado_IUCN_s1[i])))
   }
-  araucaria.triggerlist1 <- unlist(araucaria.triggerlist1)
+  cerrado_triggerlist.IUCN <- unlist(cerrado_triggerlist.IUCN)
   
-  araucaria.triggerlist1 <- as.character(araucaria.triggerlist1)
-  
+  cerrado_triggerlist.IUCN <- as.character(cerrado_triggerlist.IUCN)
   #-----------------------------------------#
-araucaria.s2 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "EN")])
-araucaria.triggerlist2 <- list()
-  for(i in 1:length(araucaria.s2)) {
-    araucaria.triggerlist2[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s2[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s2[i])))
-  }
-  araucaria.triggerlist2 <- unlist(araucaria.triggerlist2)
+  cerrado_new.mat<-list() #making an empty cerrado_new object
   
-  araucaria.triggerlist2 <- as.character(araucaria.triggerlist2)
-    #-----------------------------------------#
-  araucaria.s3 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "VU")])
-araucaria.triggerlist3 <- list()
-  for(i in 1:length(araucaria.s3)) {
-    araucaria.triggerlist3[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s3[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s3[i])))
-  }
-  araucaria.triggerlist3 <- unlist(araucaria.triggerlist3)
+  cerrado_new.mat[[1]]<-mat.cerrado #specifying the first element will be the original, full matrix
   
-  araucaria.triggerlist3 <- as.character(araucaria.triggerlist3)
-    #-----------------------------------------#
-  araucaria.s4 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "NT")])
-araucaria.triggerlist4 <- list()
-  for(i in 1:length(araucaria.s4)) {
-    araucaria.triggerlist4[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s4[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s4[i])))
-  }
-  araucaria.triggerlist4 <- unlist(araucaria.triggerlist4)
-  
-  araucaria.triggerlist4 <- as.character(araucaria.triggerlist4)
-    #-----------------------------------------#
-  #araucaria.s5 should be those that are least concern AND declining in population
-  araucaria.s5 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "LC" & araucaria_frug_md$Frug_Population_Trend == "Decreasing")])
-araucaria.triggerlist5 <- list()
-  for(i in 1:length(araucaria.s5)) {
-    araucaria.triggerlist5[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s5[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s5[i])))
-  }
-  araucaria.triggerlist5 <- unlist(araucaria.triggerlist5)
-  
-  araucaria.triggerlist5 <- as.character(araucaria.triggerlist5)
-  #-----------------------------------------#
-  #araucaria.s6 should be those that are LC and have a stable population trend
-  araucaria.s6 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "LC" & araucaria_frug_md$Frug_Population_Trend == "Stable")])
-araucaria.triggerlist6 <- list()
-  for(i in 1:length(araucaria.s6)) {
-    araucaria.triggerlist6[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s6[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s6[i])))
-  }
-  araucaria.triggerlist6 <- unlist(araucaria.triggerlist6)
-  
-  araucaria.triggerlist6 <- as.character(araucaria.triggerlist6)
-  #------------------------------------------#
-  #araucaria.s7 should be those that are LC and have an increasing population trend
-   araucaria.s7 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "LC" & araucaria_frug_md$Frug_Population_Trend == "Increasing")])
-araucaria.triggerlist7 <- list()
-  for(i in 1:length(araucaria.s7)) {
-    araucaria.triggerlist7[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s7[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s7[i])))
-  }
-  araucaria.triggerlist7 <- unlist(araucaria.triggerlist7)
-  
-  araucaria.triggerlist7 <- as.character(araucaria.triggerlist7)
-  #------------------------------------------#
-  #araucaria.s8 should be those that are LC and have an unknown population trend
-   araucaria.s8 <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frug_IUCN == "LC" & araucaria_frug_md$Frug_Population_Trend == "Unknown")])
-araucaria.triggerlist8 <- list()
-  for(i in 1:length(araucaria.s8)) {
-    araucaria.triggerlist8[[i]] <- sample(araucaria_frug_md$Frugivore_Species[which(araucaria_frug_md$Frugivore_Species == araucaria.s8[i])], length(which(araucaria_frug_md$Frugivore_Species == araucaria.s8[i])))
-  }
-  araucaria.triggerlist8 <- unlist(araucaria.triggerlist8)
-  
-  araucaria.triggerlist8 <- as.character(araucaria.triggerlist8)
-  #------------------------------------------#
-  #add trigger lists together to make 1 trigger list
-  araucaria.triggerlist <- c(araucaria.triggerlist1, araucaria.triggerlist2, araucaria.triggerlist3, araucaria.triggerlist4, araucaria.triggerlist5, araucaria.triggerlist6, araucaria.triggerlist7, araucaria.triggerlist8)
-  #-----------------------------------------#
-  araucaria.new.mat<-list() #making an empty araucaria.new object
-  
-  araucaria.new.mat[[1]]<-mat.araucaria #specifying the first element will be the original, full matrix
-  
-  for(i in 1:length(araucaria.triggerlist)) {
-    araucaria.mat <- araucaria.new.mat[[i]]
-    araucaria.mat[ ,which(colnames(araucaria.mat) == araucaria.triggerlist[i])]<-0
-    araucaria.new.mat[[i+1]] <- araucaria.mat
+  for(i in 1:length(cerrado_triggerlist.IUCN)) {
+    cerrado_mat <- cerrado_new.mat[[i]]
+    cerrado_mat[ ,which(colnames(cerrado_mat) == cerrado_triggerlist.IUCN[i])]<-0
+    cerrado_new.mat[[i+1]] <- cerrado_mat
   }
   
-  araucaria.survivors.ll <-NULL
-  araucaria.survivors.ll[[1]] <- nrow(mat.araucaria)
+  cerrado_survivors.ll <-NULL
+  cerrado_survivors.ll[[1]] <- nrow(mat.cerrado)
   
-  for(i in 1:length(araucaria.new.mat)) {araucaria.survivors.ll[i] <- length(which(rowSums(araucaria.new.mat[[i]])>0))}
+  for(i in 1:length(cerrado_new.mat)) {cerrado_survivors.ll[i] <- length(which(rowSums(cerrado_new.mat[[i]])>0))}
   
-  araucaria_plant_survivors_vector_IUCN[[j]]<-araucaria.survivors.ll
+  cerrado_plant_survivors_vec_IUCN[[j]]<-cerrado_survivors.ll
   
-  unlist(araucaria.survivors.ll)
+  unlist(cerrado_survivors.ll)
   
-  araucaria.robustness.ll <-(sum(unlist(araucaria.survivors.ll)))/((ncol(mat.araucaria))*(nrow(mat.araucaria)))
+  cerrado_robustness.ll <-(sum(unlist(cerrado_survivors.ll)))/((ncol(mat.cerrado))*(nrow(mat.cerrado)))
   
-  araucaria_robustness_vector_IUCN[j] <- araucaria.robustness.ll
+  cerrado_robustness_vec_IUCN[j] <- cerrado_robustness.ll
 }
 
 #extract survivor values into a workable form
 
-araucaria_plant_survivors_vector_IUCN_copy <- araucaria_plant_survivors_vector_IUCN
-araucaria_plant_survivors_IUCN_df<-as.data.frame(seq(from = 0, to = 131))
-for(i in 1:length(araucaria_plant_survivors_vector_IUCN_copy)) {temp_araucaria_IUCN<-unlist(araucaria_plant_survivors_vector_IUCN_copy[[i]])
-araucaria_plant_survivors_IUCN_df[,i]<-temp_araucaria_IUCN}
+cerrado_plant_survivors_vec_IUCN_copy <- cerrado_plant_survivors_vec_IUCN
+cerrado_plant_survivors_IUCN_df<-as.data.frame(seq(from = 0, to = 91))
+for(i in 1:length(cerrado_plant_survivors_vec_IUCN_copy)) {temp_cerrado_IUCN<-unlist(cerrado_plant_survivors_vec_IUCN_copy[[i]])
+cerrado_plant_survivors_IUCN_df[,i]<-temp_cerrado_IUCN}
 
-araucaria_plant_survivors_IUCN_mat<-as.matrix(araucaria_plant_survivors_IUCN_df)
-araucaria_plant_survivors_IUCN_mat<-t(araucaria_plant_survivors_IUCN_mat)
-araucaria_plant_survivors_IUCN<-as.data.frame(araucaria_plant_survivors_IUCN_mat)
+cerrado_plant_survivors_IUCN_mat<-as.matrix(cerrado_plant_survivors_IUCN_df)
+cerrado_plant_survivors_IUCN_mat<-t(cerrado_plant_survivors_IUCN_mat)
+cerrado_plant_survivors_IUCN<-as.data.frame(cerrado_plant_survivors_IUCN_mat)
+
+# clean
+
+rm(cerrado_plant_survivors_vec_IUCN_copy, cerrado_plant_survivors_IUCN_df, cerrado_plant_survivors_IUCN_mat, cerrado_robustness.ll,cerrado_survivors.ll, cerrado_new.mat, temp_cerrado_IUCN, cerrado_triggerlist.IUCN, cerrado_IUCN_s1, cerrado_plant_survivors_vec_IUCN)
+```
+
+```{r cerrado iucn based removals bootstrapping, cache=TRUE}
+
+cerrado_IUCN_means_boot<-list() #create empty list to store means
+
+cerrado_IUCN_upper_cis<-list() #create empty list to store upper CI's
+
+cerrado_IUCN_lower_cis<-list() #crate empty list to store lower CI's
+
+# per categorical removal step, there is no variation in final coextinction value bc no matter what ORDER frugivores are removed, in the end, the same frugivores are all absent from the network after a given category is completely extinct (even tho the order in which those frugs go extinct WITHIN that category is randomized per iteration of the simulation). We cannot bootstrap when there is no variation in network coextinction value, so I am pulling out those end point values below and manually adding them back to the resulting bootstrapped dataframe:
+
+cerrado_plant_survivors_IUCN <- cerrado_plant_survivors_IUCN[,-c(1, 2, 3, 4, 24, 27, 85, 92)]
+
+for(i in 1:length(cerrado_plant_survivors_IUCN)){
+  
+  means <- boot(cerrado_plant_survivors_IUCN[i], R = 1200, statistic = meanfun) #bootstrap estimate of means for each column
+  
+  mean.int.95.BCa <- boot.ci(means, conf = 0.95, type = "bca") #bootstrap's bias corrected confidence intervals
+  
+  cerrado_IUCN_lower_cis[[i+1]]<-mean.int.95.BCa$bca[1,4] #extract and save lower confidence interval
+  cerrado_IUCN_upper_cis[[i+1]]<-mean.int.95.BCa$bca[1,5] #same with upper ci
+  cerrado_IUCN_means_boot[[i+1]] <- means$t0  
+}
+
+# add the non-variation values back in and combine cerrado iucn based removals bootstrapped values
+ 
+cerrado_IUCN_means_boot<-as.data.frame(unlist(cerrado_IUCN_means_boot))
+names(cerrado_IUCN_means_boot)[1]<-"mean"
+
+cerrado_IUCN_means_boot<-cerrado_IUCN_means_boot %>% add_row(mean = 55, .before = 1)
+cerrado_IUCN_means_boot<-cerrado_IUCN_means_boot %>% add_row(mean = 52, .before = 2) 
+cerrado_IUCN_means_boot<-cerrado_IUCN_means_boot %>% add_row(mean = 38, .before = 3) 
+cerrado_IUCN_means_boot<-cerrado_IUCN_means_boot %>% add_row(mean = 38, .before = 4) 
+cerrado_IUCN_means_boot<-cerrado_IUCN_means_boot %>% add_row(mean = 32, .before = 24) 
+cerrado_IUCN_means_boot<-cerrado_IUCN_means_boot %>% add_row(mean = 31, .before = 27)
+cerrado_IUCN_means_boot<-cerrado_IUCN_means_boot %>% add_row(mean = 6, .before = 85)
+cerrado_IUCN_means_boot<-cerrado_IUCN_means_boot %>% add_row(mean = 0) 
+
+cerrado_IUCN_lower_cis<-as.data.frame(unlist(cerrado_IUCN_lower_cis))
+names(cerrado_IUCN_lower_cis)[1]<-"lower_95.ci"
+
+cerrado_IUCN_lower_cis<-cerrado_IUCN_lower_cis %>% add_row(lower_95.ci = 55, .before = 1) 
+cerrado_IUCN_lower_cis<-cerrado_IUCN_lower_cis %>% add_row(lower_95.ci = 52, .before = 2) 
+cerrado_IUCN_lower_cis<-cerrado_IUCN_lower_cis %>% add_row(lower_95.ci = 38, .before = 3) 
+cerrado_IUCN_lower_cis<-cerrado_IUCN_lower_cis %>% add_row(lower_95.ci = 38, .before = 4) 
+cerrado_IUCN_lower_cis<-cerrado_IUCN_lower_cis %>% add_row(lower_95.ci = 32, .before = 24) 
+cerrado_IUCN_lower_cis<-cerrado_IUCN_lower_cis %>% add_row(lower_95.ci = 31, .before = 27)
+cerrado_IUCN_lower_cis<-cerrado_IUCN_lower_cis %>% add_row(lower_95.ci = 6, .before = 85)
+cerrado_IUCN_lower_cis<-cerrado_IUCN_lower_cis %>% add_row(lower_95.ci = 0) 
+
+cerrado_IUCN_upper_cis<-as.data.frame(unlist(cerrado_IUCN_upper_cis))
+names(cerrado_IUCN_upper_cis)[1]<-"upper_95.ci"
+
+cerrado_IUCN_upper_cis<-cerrado_IUCN_upper_cis %>% add_row(upper_95.ci = 55, .before = 1) 
+cerrado_IUCN_upper_cis<-cerrado_IUCN_upper_cis %>% add_row(upper_95.ci = 52, .before = 2) 
+cerrado_IUCN_upper_cis<-cerrado_IUCN_upper_cis %>% add_row(upper_95.ci = 38, .before = 3) 
+cerrado_IUCN_upper_cis<-cerrado_IUCN_upper_cis %>% add_row(upper_95.ci = 38, .before = 4) 
+cerrado_IUCN_upper_cis<-cerrado_IUCN_upper_cis %>% add_row(upper_95.ci = 32, .before = 24) 
+cerrado_IUCN_upper_cis<-cerrado_IUCN_upper_cis %>% add_row(upper_95.ci = 31, .before = 27)
+cerrado_IUCN_upper_cis<-cerrado_IUCN_upper_cis %>% add_row(upper_95.ci = 6, .before = 85)
+cerrado_IUCN_upper_cis<-cerrado_IUCN_upper_cis %>% add_row(upper_95.ci = 0) 
+
+cerrado_plant_survivors_IUCN_btstrped<-cbind(cerrado_IUCN_means_boot, cerrado_IUCN_upper_cis, cerrado_IUCN_lower_cis)
+
+cerrado_plant_survivors_IUCN_btstrped$n_frugs_removed<-seq(from = 0, to = 91)
+
+# clean
+
+rm(means, mean.int.95.BCa, i, cerrado_IUCN_lower_cis, cerrado_IUCN_upper_cis, cerrado_IUCN_means_boot, cerrado_plant_survivors_IUCN)
+```
+
+
+##### Serra do Mar
+
+```{r serra.do.mar iucn based removals, cache=TRUE}
+#I'm not sure why, but the triggerlists weren't randomizing and so I'm temporarily going back to my older code version of making EIGHT individual triggerlists then combining them after wards - very jenky but appears to fix issue
+
+rob.vec.IUCN <- rep(NA, 1000)
+
+vec.survivors.IUCN.ll<- list()
+
+for(j in 1:1000) {s1 <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frug_IUCN == "CR")])
+triggerlist1 <- list()
+  for(i in 1:length(s1)) {
+    triggerlist1[[i]] <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frugivore_Species == s1[i])], length(which(serra.do.mar_frug_md$Frugivore_Species == s1[i])))
+  }
+  triggerlist1 <- unlist(triggerlist1)
+  
+  triggerlist1 <- as.character(triggerlist1)
+  
+  #-----------------------------------------#
+s2 <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frug_IUCN == "EN")])
+triggerlist2 <- list()
+  for(i in 1:length(s2)) {
+    triggerlist2[[i]] <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frugivore_Species == s2[i])], length(which(serra.do.mar_frug_md$Frugivore_Species == s2[i])))
+  }
+  triggerlist2 <- unlist(triggerlist2)
+  
+  triggerlist2 <- as.character(triggerlist2)
+    #-----------------------------------------#
+  s3 <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frug_IUCN == "VU")])
+triggerlist3 <- list()
+  for(i in 1:length(s3)) {
+    triggerlist3[[i]] <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frugivore_Species == s3[i])], length(which(serra.do.mar_frug_md$Frugivore_Species == s3[i])))
+  }
+  triggerlist3 <- unlist(triggerlist3)
+  
+  triggerlist3 <- as.character(triggerlist3)
+    #-----------------------------------------#
+  s4 <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frug_IUCN == "NT")])
+triggerlist4 <- list()
+  for(i in 1:length(s4)) {
+    triggerlist4[[i]] <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frugivore_Species == s4[i])], length(which(serra.do.mar_frug_md$Frugivore_Species == s4[i])))
+  }
+  triggerlist4 <- unlist(triggerlist4)
+  
+  triggerlist4 <- as.character(triggerlist4)
+    #-----------------------------------------#
+  #s5 should be those that are least concern AND declining in population
+  s5 <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frug_IUCN == "LC" & serra.do.mar_frug_md$Frug_Population_Trend == "Decreasing")])
+triggerlist5 <- list()
+  for(i in 1:length(s5)) {
+    triggerlist5[[i]] <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frugivore_Species == s5[i])], length(which(serra.do.mar_frug_md$Frugivore_Species == s5[i])))
+  }
+  triggerlist5 <- unlist(triggerlist5)
+  
+  triggerlist5 <- as.character(triggerlist5)
+  #-----------------------------------------#
+  #s6 should be those that are LC and have a stable population trend
+  s6 <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frug_IUCN == "LC" & serra.do.mar_frug_md$Frug_Population_Trend == "Stable")])
+triggerlist6 <- list()
+  for(i in 1:length(s6)) {
+    triggerlist6[[i]] <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frugivore_Species == s6[i])], length(which(serra.do.mar_frug_md$Frugivore_Species == s6[i])))
+  }
+  triggerlist6 <- unlist(triggerlist6)
+  
+  triggerlist6 <- as.character(triggerlist6)
+  #------------------------------------------#
+  #s7 should be those that are LC and have an increasing population trend
+   s7 <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frug_IUCN == "LC" & serra.do.mar_frug_md$Frug_Population_Trend == "Increasing")])
+triggerlist7 <- list()
+  for(i in 1:length(s7)) {
+    triggerlist7[[i]] <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frugivore_Species == s7[i])], length(which(serra.do.mar_frug_md$Frugivore_Species == s7[i])))
+  }
+  triggerlist7 <- unlist(triggerlist7)
+  
+  triggerlist7 <- as.character(triggerlist7)
+  #------------------------------------------#
+  #s8 should be those that are LC and have an unknown population trend
+   s8 <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frug_IUCN == "LC" & serra.do.mar_frug_md$Frug_Population_Trend == "Unknown")])
+triggerlist8 <- list()
+  for(i in 1:length(s8)) {
+    triggerlist8[[i]] <- sample(serra.do.mar_frug_md$Frugivore_Species[which(serra.do.mar_frug_md$Frugivore_Species == s8[i])], length(which(serra.do.mar_frug_md$Frugivore_Species == s8[i])))
+  }
+  triggerlist8 <- unlist(triggerlist8)
+  
+  triggerlist8 <- as.character(triggerlist8)
+  #------------------------------------------#
+  #add trigger lists together to make 1 trigger list
+  triggerlist <- c(triggerlist1, triggerlist2, triggerlist3, triggerlist4, triggerlist5, triggerlist6, triggerlist7, triggerlist8)
+  #-----------------------------------------#
+  new.mat<-list() #making an empty new object
+  
+  new.mat[[1]]<-mat.serra.do.mar #specifying the first element will be the original, full matrix
+  
+  for(i in 1:length(triggerlist)) {
+    mat <- new.mat[[i]]
+    mat[ ,which(colnames(mat) == triggerlist[i])]<-0
+    new.mat[[i+1]] <- mat
+  }
+  
+  survivors.ll <-NULL
+  survivors.ll[[1]] <- nrow(mat.serra.do.mar)
+  
+  for(i in 1:length(new.mat)) {survivors.ll[i] <- length(which(rowSums(new.mat[[i]])>0))}
+  
+  vec.survivors.IUCN.ll[[j]]<-survivors.ll
+  
+  unlist(survivors.ll)
+  
+  Robustness.ll <-(sum(unlist(survivors.ll)))/((ncol(mat.serra.do.mar))*(nrow(mat.serra.do.mar)))
+  
+  rob.vec.IUCN[j] <- Robustness.ll
+}
+
+#extract survivor values into a workable form
+
+vec.survivors.IUCN.ll_copy <- vec.survivors.IUCN.ll
+serra.do.mar_plant_survivors_IUCN_df<-as.data.frame(seq(from = 0, to = 173))
+
+for(i in 1:length(vec.survivors.IUCN.ll_copy)) {temp_serra.do.mar_IUCN<-unlist(vec.survivors.IUCN.ll_copy[[i]])
+serra.do.mar_plant_survivors_IUCN_df[,i]<-temp_serra.do.mar_IUCN}
+
+serra.do.mar_plant_survivors_IUCN_mat<-as.matrix(serra.do.mar_plant_survivors_IUCN_df)
+serra.do.mar_plant_survivors_IUCN_mat<-t(serra.do.mar_plant_survivors_IUCN_mat)
+serra.do.mar_plant_survivors_IUCN<-as.data.frame(serra.do.mar_plant_survivors_IUCN_mat)
+
+# clean
+
+rm(serra.do.mar_plant_survivors_IUCN_mat, serra.do.mar_plant_survivors_IUCN_df, Robustness.ll, survivors.ll, vec.survivors.IUCN.ll, vec.survivors.IUCN.ll_copy, i, j, new.mat, mat, triggerlist, triggerlist1, triggerlist2, triggerlist3, triggerlist4, triggerlist5, triggerlist6, triggerlist7, triggerlist8, rob.vec.IUCN, s1, s2, s3, s4, s5, s6, s7, s8)
+
+```
+
+```{r serra.do.mar iucn based removals bootstrapping, cache =TRUE}
+serra.do.mar_IUCN_means_boot<-list() #create empty list to store means
+
+serra.do.mar_IUCN_upper_cis<-list() #create empty list to store upper CI's
+
+serra.do.mar_IUCN_lower_cis<-list() #crate empty list to store lower CI's
+
+serra.do.mar_plant_survivors_IUCN <- serra.do.mar_plant_survivors_IUCN[,-c(1, 2, 4, 8, 14, 50, 145, 159, 174)]
+
+
+for(i in 1:length(serra.do.mar_plant_survivors_IUCN)){
+  
+  means <- boot(serra.do.mar_plant_survivors_IUCN[i], R = 1200, statistic = meanfun)
+  
+  mean.int.95.BCa <- boot.ci(means, conf = 0.95, type = "bca") 
+  
+  serra.do.mar_IUCN_lower_cis[[i+1]]<-mean.int.95.BCa$bca[1,4] 
+  serra.do.mar_IUCN_upper_cis[[i+1]]<-mean.int.95.BCa$bca[1,5] 
+  serra.do.mar_IUCN_means_boot[[i+1]] <- means$t0  
+}
+
+
+serra.do.mar_IUCN_means_boot<-as.data.frame(unlist(serra.do.mar_IUCN_means_boot))
+names(serra.do.mar_IUCN_means_boot)[1]<-"mean"
+
+serra.do.mar_IUCN_means_boot<-serra.do.mar_IUCN_means_boot %>% add_row(mean = 246, .before = 1)
+serra.do.mar_IUCN_means_boot<-serra.do.mar_IUCN_means_boot %>% add_row(mean = 245, .before = 2) 
+serra.do.mar_IUCN_means_boot<-serra.do.mar_IUCN_means_boot %>% add_row(mean = 187, .before = 4) 
+serra.do.mar_IUCN_means_boot<-serra.do.mar_IUCN_means_boot %>% add_row(mean = 172, .before = 8) 
+serra.do.mar_IUCN_means_boot<-serra.do.mar_IUCN_means_boot %>% add_row(mean = 171, .before = 14) 
+serra.do.mar_IUCN_means_boot<-serra.do.mar_IUCN_means_boot %>% add_row(mean = 163, .before = 50)
+serra.do.mar_IUCN_means_boot<-serra.do.mar_IUCN_means_boot %>% add_row(mean = 56, .before = 145)
+serra.do.mar_IUCN_means_boot<-serra.do.mar_IUCN_means_boot %>% add_row(mean = 18, .before = 159)
+serra.do.mar_IUCN_means_boot<-serra.do.mar_IUCN_means_boot %>% add_row(mean = 0) 
+
+serra.do.mar_IUCN_lower_cis<-as.data.frame(unlist(serra.do.mar_IUCN_lower_cis))
+names(serra.do.mar_IUCN_lower_cis)[1]<-"lower_95.ci"
+
+serra.do.mar_IUCN_lower_cis<-serra.do.mar_IUCN_lower_cis %>% add_row(lower_95.ci = 246, .before = 1) 
+serra.do.mar_IUCN_lower_cis<-serra.do.mar_IUCN_lower_cis %>% add_row(lower_95.ci = 245, .before = 2) 
+serra.do.mar_IUCN_lower_cis<-serra.do.mar_IUCN_lower_cis %>% add_row(lower_95.ci = 187, .before = 4) 
+serra.do.mar_IUCN_lower_cis<-serra.do.mar_IUCN_lower_cis %>% add_row(lower_95.ci = 172, .before = 8) 
+serra.do.mar_IUCN_lower_cis<-serra.do.mar_IUCN_lower_cis %>% add_row(lower_95.ci = 171, .before = 14) 
+serra.do.mar_IUCN_lower_cis<-serra.do.mar_IUCN_lower_cis %>% add_row(lower_95.ci = 163, .before = 50)
+serra.do.mar_IUCN_lower_cis<-serra.do.mar_IUCN_lower_cis %>% add_row(lower_95.ci = 56, .before = 145)
+serra.do.mar_IUCN_lower_cis<-serra.do.mar_IUCN_lower_cis %>% add_row(lower_95.ci = 18, .before = 159)
+serra.do.mar_IUCN_lower_cis<-serra.do.mar_IUCN_lower_cis %>% add_row(lower_95.ci = 0) 
+
+serra.do.mar_IUCN_upper_cis<-as.data.frame(unlist(serra.do.mar_IUCN_upper_cis))
+names(serra.do.mar_IUCN_upper_cis)[1]<-"upper_95.ci"
+
+serra.do.mar_IUCN_upper_cis<-serra.do.mar_IUCN_upper_cis %>% add_row(upper_95.ci = 246, .before = 1) 
+serra.do.mar_IUCN_upper_cis<-serra.do.mar_IUCN_upper_cis %>% add_row(upper_95.ci = 245, .before = 2) 
+serra.do.mar_IUCN_upper_cis<-serra.do.mar_IUCN_upper_cis %>% add_row(upper_95.ci = 187, .before = 4) 
+serra.do.mar_IUCN_upper_cis<-serra.do.mar_IUCN_upper_cis %>% add_row(upper_95.ci = 172, .before = 8) 
+serra.do.mar_IUCN_upper_cis<-serra.do.mar_IUCN_upper_cis %>% add_row(upper_95.ci = 171, .before = 14) 
+serra.do.mar_IUCN_upper_cis<-serra.do.mar_IUCN_upper_cis %>% add_row(upper_95.ci = 163, .before = 50)
+serra.do.mar_IUCN_upper_cis<-serra.do.mar_IUCN_upper_cis %>% add_row(upper_95.ci = 56, .before = 145)
+serra.do.mar_IUCN_upper_cis<-serra.do.mar_IUCN_upper_cis %>% add_row(upper_95.ci = 18, .before = 159)
+serra.do.mar_IUCN_upper_cis<-serra.do.mar_IUCN_upper_cis %>% add_row(upper_95.ci = 0) 
+
+serra.do.mar_plant_survivors_IUCN_btstrped<-cbind(serra.do.mar_IUCN_means_boot, serra.do.mar_IUCN_upper_cis, serra.do.mar_IUCN_lower_cis)
+
+serra.do.mar_plant_survivors_IUCN_btstrped$n_frugs_removed<-seq(from = 0, to = 173)
+
+# clean
+
+rm(means, mean.int.95.BCa, i, serra.do.mar_IUCN_lower_cis, serra.do.mar_IUCN_upper_cis, serra.do.mar_IUCN_means_boot, serra.do.mar_plant_survivors_IUCN, temp_serra.do.mar_IUCN)
+```
+
+##### Mata Caducifolia
+
+```{r mata caducifolia IUCN based removals, cache = TRUE}
+
+mata.caducifolia_robustness_vec_IUCN <- rep(NA, 1000)
+
+mata.caducifolia_plant_survivors_vec_IUCN<- list()
+
+for(j in 1:1000) {
+mata.caducifolia_IUCN_s1 <- c(sample(mata.caducifolia_frug_md$Frugivore_Species[which(mata.caducifolia_frug_md$Frug_IUCN == "CR")]),
+                              sample(mata.caducifolia_frug_md$Frugivore_Species[which(mata.caducifolia_frug_md$Frug_IUCN == "EN")]), 
+                              sample(mata.caducifolia_frug_md$Frugivore_Species[which(mata.caducifolia_frug_md$Frug_IUCN == "VU")]), 
+                              sample(mata.caducifolia_frug_md$Frugivore_Species[which(mata.caducifolia_frug_md$Frug_IUCN == "NT")]), 
+                              sample(mata.caducifolia_frug_md$Frugivore_Species[which(mata.caducifolia_frug_md$Frug_IUCN == "LC" & mata.caducifolia_frug_md$Frug_Population_Trend == "Decreasing")]),
+                              sample(mata.caducifolia_frug_md$Frugivore_Species[which(mata.caducifolia_frug_md$Frug_IUCN == "LC" & mata.caducifolia_frug_md$Frug_Population_Trend == "Unknown")]),
+                              sample(mata.caducifolia_frug_md$Frugivore_Species[which(mata.caducifolia_frug_md$Frug_IUCN == "LC" & mata.caducifolia_frug_md$Frug_Population_Trend == "Stable")]),
+                              sample(mata.caducifolia_frug_md$Frugivore_Species[which(mata.caducifolia_frug_md$Frug_IUCN == "LC" & mata.caducifolia_frug_md$Frug_Population_Trend == "Increasing")]))
+
+mata.caducifolia.triggerlist.IUCN <- list()
+
+  for(i in 1:length(mata.caducifolia_IUCN_s1)) {
+    mata.caducifolia.triggerlist.IUCN[[i]] <- sample(mata.caducifolia_frug_md$Frugivore_Species[which(mata.caducifolia_frug_md$Frugivore_Species == mata.caducifolia_IUCN_s1[i])], length(which(mata.caducifolia_frug_md$Frugivore_Species == mata.caducifolia_IUCN_s1[i])))
+  }
+
+  mata.caducifolia.triggerlist.IUCN <- unlist(mata.caducifolia.triggerlist.IUCN)
+  
+  mata.caducifolia.triggerlist.IUCN <- as.character(mata.caducifolia.triggerlist.IUCN)
+  
+  #-----------------------------------------#
+  
+  mata.caducifolia.new.mat<-list()
+  
+  mata.caducifolia.new.mat[[1]]<-mat.mata.caducifolia
+  
+  for(i in 1:length(mata.caducifolia.triggerlist.IUCN)) {
+    mata.caducifolia.mat <- mata.caducifolia.new.mat[[i]]
+    mata.caducifolia.mat[ ,which(colnames(mata.caducifolia.mat) == mata.caducifolia.triggerlist.IUCN[i])]<-0
+    mata.caducifolia.new.mat[[i+1]] <- mata.caducifolia.mat
+  }
+  
+  mata.caducifolia.survivors.ll <-NULL
+  
+  mata.caducifolia.survivors.ll[[1]] <- nrow(mat.mata.caducifolia)
+  
+  for(i in 1:length(mata.caducifolia.new.mat)) {mata.caducifolia.survivors.ll[i] <- length(which(rowSums(mata.caducifolia.new.mat[[i]])>0))}
+  
+  mata.caducifolia_plant_survivors_vec_IUCN[[j]]<-mata.caducifolia.survivors.ll
+  
+  unlist(mata.caducifolia.survivors.ll)
+  
+  mata.caducifolia.robustness.ll <-(sum(unlist(mata.caducifolia.survivors.ll)))/((ncol(mat.mata.caducifolia))*(nrow(mat.mata.caducifolia)))
+  
+  mata.caducifolia_robustness_vec_IUCN[j] <- mata.caducifolia.robustness.ll
+}
+
+#extract survivor values into a workable form
+
+mata.caducifolia_plant_survivors_vec_IUCN_copy <- mata.caducifolia_plant_survivors_vec_IUCN
+mata.caducifolia_plant_survivors_IUCN_df<-as.data.frame(seq(from = 0, to = 84))
+for(i in 1:length(mata.caducifolia_plant_survivors_vec_IUCN_copy)) {temp_mata.caducifolia_IUCN<-unlist(mata.caducifolia_plant_survivors_vec_IUCN_copy[[i]])
+mata.caducifolia_plant_survivors_IUCN_df[,i]<-temp_mata.caducifolia_IUCN}
+
+mata.caducifolia_plant_survivors_IUCN_mat<-as.matrix(mata.caducifolia_plant_survivors_IUCN_df)
+mata.caducifolia_plant_survivors_IUCN_mat<-t(mata.caducifolia_plant_survivors_IUCN_mat)
+mata.caducifolia_plant_survivors_IUCN<-as.data.frame(mata.caducifolia_plant_survivors_IUCN_mat)
+
+# clean
+
+rm(mata.caducifolia_plant_survivors_vec_IUCN_copy, mata.caducifolia_plant_survivors_IUCN_df, mata.caducifolia_plant_survivors_IUCN_mat, mata.caducifolia.robustness.ll,mata.caducifolia.survivors.ll, mata.caducifolia.new.mat, temp_mata.caducifolia_IUCN, mata.caducifolia.triggerlist.IUCN, mata.caducifolia_IUCN_s1, mata.caducifolia_plant_survivors_vec_IUCN)
+
+```
+
+```{r mata caducifolia iucn based removals bootstrapping, cache=TRUE}
+mata.caducifolia_IUCN_means_boot<-list() #create empty list to store means
+
+mata.caducifolia_IUCN_upper_cis<-list() #create empty list to store upper CI's
+
+mata.caducifolia_IUCN_lower_cis<-list() #crate empty list to store lower CI's
+
+mata.caducifolia_plant_survivors_IUCN <- mata.caducifolia_plant_survivors_IUCN[,-c(1, 2, 4, 5, 6, 22, 24, 77, 85)]
+
+
+for(i in 1:length(mata.caducifolia_plant_survivors_IUCN)){
+  
+  means <- boot(mata.caducifolia_plant_survivors_IUCN[i], R = 1200, statistic = meanfun)
+  
+  mean.int.95.BCa <- boot.ci(means, conf = 0.95, type = "bca") 
+  
+  mata.caducifolia_IUCN_lower_cis[[i+1]]<-mean.int.95.BCa$bca[1,4] 
+  mata.caducifolia_IUCN_upper_cis[[i+1]]<-mean.int.95.BCa$bca[1,5] 
+  mata.caducifolia_IUCN_means_boot[[i+1]] <- means$t0  
+}
+
+mata.caducifolia_IUCN_means_boot<-as.data.frame(unlist(mata.caducifolia_IUCN_means_boot))
+names(mata.caducifolia_IUCN_means_boot)[1]<-"mean"
+
+mata.caducifolia_IUCN_means_boot<-mata.caducifolia_IUCN_means_boot %>% add_row(mean = 129, .before = 1)
+mata.caducifolia_IUCN_means_boot<-mata.caducifolia_IUCN_means_boot %>% add_row(mean = 114, .before = 2) 
+mata.caducifolia_IUCN_means_boot<-mata.caducifolia_IUCN_means_boot %>% add_row(mean = 110, .before = 4) 
+mata.caducifolia_IUCN_means_boot<-mata.caducifolia_IUCN_means_boot %>% add_row(mean = 109, .before = 5) 
+mata.caducifolia_IUCN_means_boot<-mata.caducifolia_IUCN_means_boot %>% add_row(mean = 109, .before = 6) 
+mata.caducifolia_IUCN_means_boot<-mata.caducifolia_IUCN_means_boot %>% add_row(mean = 107, .before = 22)
+mata.caducifolia_IUCN_means_boot<-mata.caducifolia_IUCN_means_boot %>% add_row(mean = 101, .before = 24)
+mata.caducifolia_IUCN_means_boot<-mata.caducifolia_IUCN_means_boot %>% add_row(mean = 17, .before = 77)
+mata.caducifolia_IUCN_means_boot<-mata.caducifolia_IUCN_means_boot %>% add_row(mean = 0) 
+
+mata.caducifolia_IUCN_lower_cis<-as.data.frame(unlist(mata.caducifolia_IUCN_lower_cis))
+names(mata.caducifolia_IUCN_lower_cis)[1]<-"lower_95.ci"
+
+mata.caducifolia_IUCN_lower_cis<-mata.caducifolia_IUCN_lower_cis %>% add_row(lower_95.ci = 129, .before = 1) 
+mata.caducifolia_IUCN_lower_cis<-mata.caducifolia_IUCN_lower_cis %>% add_row(lower_95.ci = 114, .before = 2) 
+mata.caducifolia_IUCN_lower_cis<-mata.caducifolia_IUCN_lower_cis %>% add_row(lower_95.ci = 110, .before = 4) 
+mata.caducifolia_IUCN_lower_cis<-mata.caducifolia_IUCN_lower_cis %>% add_row(lower_95.ci = 109, .before = 5) 
+mata.caducifolia_IUCN_lower_cis<-mata.caducifolia_IUCN_lower_cis %>% add_row(lower_95.ci = 109, .before = 6) 
+mata.caducifolia_IUCN_lower_cis<-mata.caducifolia_IUCN_lower_cis %>% add_row(lower_95.ci = 107, .before = 22)
+mata.caducifolia_IUCN_lower_cis<-mata.caducifolia_IUCN_lower_cis %>% add_row(lower_95.ci = 101, .before = 24)
+mata.caducifolia_IUCN_lower_cis<-mata.caducifolia_IUCN_lower_cis %>% add_row(lower_95.ci = 17, .before = 77)
+mata.caducifolia_IUCN_lower_cis<-mata.caducifolia_IUCN_lower_cis %>% add_row(lower_95.ci = 0) 
+
+mata.caducifolia_IUCN_upper_cis<-as.data.frame(unlist(mata.caducifolia_IUCN_upper_cis))
+names(mata.caducifolia_IUCN_upper_cis)[1]<-"upper_95.ci"
+
+mata.caducifolia_IUCN_upper_cis<-mata.caducifolia_IUCN_upper_cis %>% add_row(upper_95.ci = 129, .before = 1) 
+mata.caducifolia_IUCN_upper_cis<-mata.caducifolia_IUCN_upper_cis %>% add_row(upper_95.ci = 114, .before = 2) 
+mata.caducifolia_IUCN_upper_cis<-mata.caducifolia_IUCN_upper_cis %>% add_row(upper_95.ci = 110, .before = 4) 
+mata.caducifolia_IUCN_upper_cis<-mata.caducifolia_IUCN_upper_cis %>% add_row(upper_95.ci = 109, .before = 5) 
+mata.caducifolia_IUCN_upper_cis<-mata.caducifolia_IUCN_upper_cis %>% add_row(upper_95.ci = 109, .before = 6) 
+mata.caducifolia_IUCN_upper_cis<-mata.caducifolia_IUCN_upper_cis %>% add_row(upper_95.ci = 107, .before = 22)
+mata.caducifolia_IUCN_upper_cis<-mata.caducifolia_IUCN_upper_cis %>% add_row(upper_95.ci = 101, .before = 24)
+mata.caducifolia_IUCN_upper_cis<-mata.caducifolia_IUCN_upper_cis %>% add_row(upper_95.ci = 17, .before = 77)
+mata.caducifolia_IUCN_upper_cis<-mata.caducifolia_IUCN_upper_cis %>% add_row(upper_95.ci = 0) 
+
+mata.caducifolia_plant_survivors_IUCN_btstrped<-cbind(mata.caducifolia_IUCN_means_boot, mata.caducifolia_IUCN_upper_cis, mata.caducifolia_IUCN_lower_cis)
+
+mata.caducifolia_plant_survivors_IUCN_btstrped$n_frugs_removed<-seq(from = 0, to = 84)
+
+# clean
+
+rm(means, mean.int.95.BCa, i, mata.caducifolia_IUCN_lower_cis, mata.caducifolia_IUCN_upper_cis, mata.caducifolia_IUCN_means_boot, mata.caducifolia_plant_survivors_IUCN)
+
 ```
     
+    
+### Removal based on greatest to lowest body mass
+
+#### Biome-scale body-mass-based removal simulations
+
+```{r biome-scale removal scenario of frugivores by descending body mass}
+    biome_bodymass_triggerlist <- biome_frug_md %>% dplyr::arrange(desc(Frug_Body_Mass)) %>% dplyr::select(Frugivore_Species)
+biome_bodymass_triggerlist <- unlist(biome_bodymass_triggerlist)
+  #-----------------------------------------#
+  biome_new.mat_bodymass<-list()
+  biome_new.mat_bodymass[[1]]<-biome.mat
+  for(i in 1:length(biome_bodymass_triggerlist)) {
+    biome.mat.temp <- biome_new.mat_bodymass[[i]]
+    biome.mat.temp[ ,which(colnames(biome.mat.temp) == biome_bodymass_triggerlist[i])]<-0
+    biome_new.mat_bodymass[[i+1]] <- biome.mat.temp
+  }
+  biome_plant_survivors_bodymass <-NULL
+  biome_plant_survivors_bodymass[[1]] <- nrow(biome.mat)
+  for(i in 1:length(biome_new.mat_bodymass)) {biome_plant_survivors_bodymass[i] <- length(which(rowSums(biome_new.mat_bodymass[[i]])>0))} 
+  
+biome_robustness_bodymass <-(sum(unlist(biome_plant_survivors_bodymass)))/((ncol(biome.mat))*(nrow(biome.mat)))
+
+# get output ready to join with others for graphing
+
+biome_plant_survivors_bodymass <- as.data.frame(unlist(biome_plant_survivors_bodymass))
+
+# make a frugivores removed column
+
+biome_plant_survivors_bodymass$n_frugs_removed <- seq(from = 0, to = 321)
+
+# rename survivor column
+
+names(biome_plant_survivors_bodymass)[1]<-"n_plants_remaining"
+
+# add removal scenario column
+biome_plant_survivors_bodymass$scenario<-"descending_bodymass"
+
+# clean
+
+rm(i, biome_new.mat_bodymass, biome.mat.temp, biome_bodymass_triggerlist)
+
+```
+
+#### Ecoregion-scale body-mass-based removal simulations
+
+```{r araucaria body-mass-based removal simulation}
+    araucaria_bodymass_triggerlist <- araucaria_frug_md %>% dplyr::arrange(desc(Frug_Body_Mass)) %>% dplyr::select(Frugivore_Species)
+araucaria_bodymass_triggerlist <- unlist(araucaria_bodymass_triggerlist)
+  #-----------------------------------------#
+  araucaria_new.mat_bodymass<-list()
+  araucaria_new.mat_bodymass[[1]]<-mat.araucaria
+  for(i in 1:length(araucaria_bodymass_triggerlist)) {
+    mat.araucaria.temp <- araucaria_new.mat_bodymass[[i]]
+    mat.araucaria.temp[ ,which(colnames(mat.araucaria.temp) == araucaria_bodymass_triggerlist[i])]<-0
+    araucaria_new.mat_bodymass[[i+1]] <- mat.araucaria.temp
+  }
+  araucaria_plant_survivors_bodymass <-NULL
+  araucaria_plant_survivors_bodymass[[1]] <- nrow(mat.araucaria)
+  for(i in 1:length(araucaria_new.mat_bodymass)) {araucaria_plant_survivors_bodymass[i] <- length(which(rowSums(araucaria_new.mat_bodymass[[i]])>0))} 
+  
+araucaria_robustness_bodymass <-(sum(unlist(araucaria_plant_survivors_bodymass)))/((ncol(mat.araucaria))*(nrow(mat.araucaria)))
+
+# get output ready to join with others for graphing
+
+araucaria_plant_survivors_bodymass <- as.data.frame(unlist(araucaria_plant_survivors_bodymass))
+
+# make a frugivores removed column
+
+araucaria_plant_survivors_bodymass$n_frugs_removed <- seq(from = 0, to = 131)
+
+# rename survivor column
+
+names(araucaria_plant_survivors_bodymass)[1]<-"n_plants_remaining"
+
+# add removal scenario column
+araucaria_plant_survivors_bodymass$scenario<-"descending_bodymass"
+
+# clean
+
+rm(i, araucaria_new.mat_bodymass, mat.araucaria.temp, araucaria_bodymass_triggerlist)
+```
+
+```{r cerrado body-mass-based removal simulation}
+ cerrado_bodymass_triggerlist <- cerrado_frug_md %>% dplyr::arrange(desc(Frug_Body_Mass)) %>% dplyr::select(Frugivore_Species)
+cerrado_bodymass_triggerlist <- unlist(cerrado_bodymass_triggerlist)
+  #-----------------------------------------#
+  cerrado_new.mat_bodymass<-list()
+  cerrado_new.mat_bodymass[[1]]<-mat.cerrado
+  for(i in 1:length(cerrado_bodymass_triggerlist)) {
+    mat.cerrado.temp <- cerrado_new.mat_bodymass[[i]]
+    mat.cerrado.temp[ ,which(colnames(mat.cerrado.temp) == cerrado_bodymass_triggerlist[i])]<-0
+    cerrado_new.mat_bodymass[[i+1]] <- mat.cerrado.temp
+  }
+  cerrado_plant_survivors_bodymass <-NULL
+  cerrado_plant_survivors_bodymass[[1]] <- nrow(mat.cerrado)
+  for(i in 1:length(cerrado_new.mat_bodymass)) {cerrado_plant_survivors_bodymass[i] <- length(which(rowSums(cerrado_new.mat_bodymass[[i]])>0))} 
+  
+cerrado_robustness_bodymass <-(sum(unlist(cerrado_plant_survivors_bodymass)))/((ncol(mat.cerrado))*(nrow(mat.cerrado)))
+
+# get output ready to join with others for graphing
+
+cerrado_plant_survivors_bodymass <- as.data.frame(unlist(cerrado_plant_survivors_bodymass))
+
+# make a frugivores removed column
+
+cerrado_plant_survivors_bodymass$n_frugs_removed <- seq(from = 0, to = 91)
+
+# rename survivor column
+
+names(cerrado_plant_survivors_bodymass)[1]<-"n_plants_remaining"
+
+# add removal scenario column
+cerrado_plant_survivors_bodymass$scenario<-"descending_bodymass"
+
+# clean
+
+rm(i, cerrado_new.mat_bodymass, mat.cerrado.temp, cerrado_bodymass_triggerlist)
+```
+
+```{r serra do mar body-mass-based removal simulation}
+ serra.do.mar_bodymass_triggerlist <- serra.do.mar_frug_md %>% dplyr::arrange(desc(Frug_Body_Mass)) %>% dplyr::select(Frugivore_Species)
+serra.do.mar_bodymass_triggerlist <- unlist(serra.do.mar_bodymass_triggerlist)
+  #-----------------------------------------#
+  serra.do.mar_new.mat_bodymass<-list()
+  serra.do.mar_new.mat_bodymass[[1]]<-mat.serra.do.mar
+  for(i in 1:length(serra.do.mar_bodymass_triggerlist)) {
+    mat.serra.do.mar.temp <- serra.do.mar_new.mat_bodymass[[i]]
+    mat.serra.do.mar.temp[ ,which(colnames(mat.serra.do.mar.temp) == serra.do.mar_bodymass_triggerlist[i])]<-0
+    serra.do.mar_new.mat_bodymass[[i+1]] <- mat.serra.do.mar.temp
+  }
+  serra.do.mar_plant_survivors_bodymass <-NULL
+  serra.do.mar_plant_survivors_bodymass[[1]] <- nrow(mat.serra.do.mar)
+  for(i in 1:length(serra.do.mar_new.mat_bodymass)) {serra.do.mar_plant_survivors_bodymass[i] <- length(which(rowSums(serra.do.mar_new.mat_bodymass[[i]])>0))} 
+  
+serra.do.mar_robustness_bodymass <-(sum(unlist(serra.do.mar_plant_survivors_bodymass)))/((ncol(mat.serra.do.mar))*(nrow(mat.serra.do.mar)))
+
+# get output ready to join with others for graphing
+
+serra.do.mar_plant_survivors_bodymass <- as.data.frame(unlist(serra.do.mar_plant_survivors_bodymass))
+
+# make a frugivores removed column
+
+serra.do.mar_plant_survivors_bodymass$n_frugs_removed <- seq(from = 0, to = 173)
+
+# rename survivor column
+
+names(serra.do.mar_plant_survivors_bodymass)[1]<-"n_plants_remaining"
+
+# add removal scenario column
+serra.do.mar_plant_survivors_bodymass$scenario<-"descending_bodymass"
+
+# clean
+
+rm(i, serra.do.mar_new.mat_bodymass, mat.serra.do.mar.temp, serra.do.mar_bodymass_triggerlist)
+```
+
+```{r mata caducifolia body-mass-based removal simulation}
+ mata.caducifolia_bodymass_triggerlist <- mata.caducifolia_frug_md %>% dplyr::arrange(desc(Frug_Body_Mass)) %>% dplyr::select(Frugivore_Species)
+mata.caducifolia_bodymass_triggerlist <- unlist(mata.caducifolia_bodymass_triggerlist)
+  #-----------------------------------------#
+  mata.caducifolia_new.mat_bodymass<-list()
+  mata.caducifolia_new.mat_bodymass[[1]]<-mat.mata.caducifolia
+  for(i in 1:length(mata.caducifolia_bodymass_triggerlist)) {
+    mat.mata.caducifolia.temp <- mata.caducifolia_new.mat_bodymass[[i]]
+    mat.mata.caducifolia.temp[ ,which(colnames(mat.mata.caducifolia.temp) == mata.caducifolia_bodymass_triggerlist[i])]<-0
+    mata.caducifolia_new.mat_bodymass[[i+1]] <- mat.mata.caducifolia.temp
+  }
+  mata.caducifolia_plant_survivors_bodymass <-NULL
+  mata.caducifolia_plant_survivors_bodymass[[1]] <- nrow(mat.mata.caducifolia)
+  for(i in 1:length(mata.caducifolia_new.mat_bodymass)) {mata.caducifolia_plant_survivors_bodymass[i] <- length(which(rowSums(mata.caducifolia_new.mat_bodymass[[i]])>0))} 
+  
+mata.caducifolia_robustness_bodymass <-(sum(unlist(mata.caducifolia_plant_survivors_bodymass)))/((ncol(mat.mata.caducifolia))*(nrow(mat.mata.caducifolia)))
+
+# get output ready to join with others for graphing
+
+mata.caducifolia_plant_survivors_bodymass <- as.data.frame(unlist(mata.caducifolia_plant_survivors_bodymass))
+
+# make a frugivores removed column
+
+mata.caducifolia_plant_survivors_bodymass$n_frugs_removed <- seq(from = 0, to = 84)
+
+# rename survivor column
+
+names(mata.caducifolia_plant_survivors_bodymass)[1]<-"n_plants_remaining"
+
+# add removal scenario column
+mata.caducifolia_plant_survivors_bodymass$scenario<-"descending_bodymass"
+
+# clean
+
+rm(i, mata.caducifolia_new.mat_bodymass, mat.mata.caducifolia.temp, mata.caducifolia_bodymass_triggerlist)
+```
+
+### Removal based on greatest to lowest degree
+
+#### Biome-scale degree-based removal simulations
+
+```{r biome-scale removal scenario of frugivores by descending degree}
+    biome_degree_triggerlist <- biome_frug_md %>% dplyr::arrange(desc(Frugivore_degree)) %>% dplyr::select(Frugivore_Species)
+biome_degree_triggerlist <- unlist(biome_degree_triggerlist)
+  #-----------------------------------------#
+  biome_new.mat_degree<-list()
+  biome_new.mat_degree[[1]]<-biome.mat
+  for(i in 1:length(biome_degree_triggerlist)) {
+    biome.mat.temp <- biome_new.mat_degree[[i]]
+    biome.mat.temp[ ,which(colnames(biome.mat.temp) == biome_degree_triggerlist[i])]<-0
+    biome_new.mat_degree[[i+1]] <- biome.mat.temp
+  }
+  biome_plant_survivors_degree <-NULL
+  biome_plant_survivors_degree[[1]] <- nrow(biome.mat)
+  for(i in 1:length(biome_new.mat_degree)) {biome_plant_survivors_degree[i] <- length(which(rowSums(biome_new.mat_degree[[i]])>0))} 
+  
+biome_robustness_degree <-(sum(unlist(biome_plant_survivors_degree)))/((ncol(biome.mat))*(nrow(biome.mat)))
+
+# get output ready to join with others for graphing
+
+biome_plant_survivors_degree <- as.data.frame(unlist(biome_plant_survivors_degree))
+
+# make a frugivores removed column
+
+biome_plant_survivors_degree$n_frugs_removed <- seq(from = 0, to = 321)
+
+# rename survivor column
+
+names(biome_plant_survivors_degree)[1]<-"n_plants_remaining"
+
+# add removal scenario column
+biome_plant_survivors_degree$scenario<-"descending_degree"
+
+# clean
+
+rm(i, biome_new.mat_degree, biome.mat.temp, biome_degree_triggerlist)
+```
+
+#### Ecoregion-scale degree-based removal simulations
+
+```{r araucaria degree-based removal simulation}
+    araucaria_degree_triggerlist <- araucaria_frug_md %>% dplyr::arrange(desc(Frugivore_degree)) %>% dplyr::select(Frugivore_Species)
+araucaria_degree_triggerlist <- unlist(araucaria_degree_triggerlist)
+  #-----------------------------------------#
+  araucaria_new.mat_degree<-list()
+  araucaria_new.mat_degree[[1]]<-mat.araucaria
+  for(i in 1:length(araucaria_degree_triggerlist)) {
+    mat.araucaria.temp <- araucaria_new.mat_degree[[i]]
+    mat.araucaria.temp[ ,which(colnames(mat.araucaria.temp) == araucaria_degree_triggerlist[i])]<-0
+    araucaria_new.mat_degree[[i+1]] <- mat.araucaria.temp
+  }
+  araucaria_plant_survivors_degree <-NULL
+  araucaria_plant_survivors_degree[[1]] <- nrow(mat.araucaria)
+  for(i in 1:length(araucaria_new.mat_degree)) {araucaria_plant_survivors_degree[i] <- length(which(rowSums(araucaria_new.mat_degree[[i]])>0))} 
+  
+araucaria_robustness_degree <-(sum(unlist(araucaria_plant_survivors_degree)))/((ncol(mat.araucaria))*(nrow(mat.araucaria)))
+
+# get output ready to join with others for graphing
+
+araucaria_plant_survivors_degree <- as.data.frame(unlist(araucaria_plant_survivors_degree))
+
+# make a frugivores removed column
+
+araucaria_plant_survivors_degree$n_frugs_removed <- seq(from = 0, to = 131)
+
+# rename survivor column
+
+names(araucaria_plant_survivors_degree)[1]<-"n_plants_remaining"
+
+# add removal scenario column
+araucaria_plant_survivors_degree$scenario<-"descending_degree"
+
+# clean
+
+rm(i, araucaria_new.mat_degree, mat.araucaria.temp, araucaria_degree_triggerlist)
+```
+
+```{r cerrado degree-based removal simulation}
+ cerrado_degree_triggerlist <- cerrado_frug_md %>% dplyr::arrange(desc(Frugivore_degree)) %>% dplyr::select(Frugivore_Species)
+cerrado_degree_triggerlist <- unlist(cerrado_degree_triggerlist)
+  #-----------------------------------------#
+  cerrado_new.mat_degree<-list()
+  cerrado_new.mat_degree[[1]]<-mat.cerrado
+  for(i in 1:length(cerrado_degree_triggerlist)) {
+    mat.cerrado.temp <- cerrado_new.mat_degree[[i]]
+    mat.cerrado.temp[ ,which(colnames(mat.cerrado.temp) == cerrado_degree_triggerlist[i])]<-0
+    cerrado_new.mat_degree[[i+1]] <- mat.cerrado.temp
+  }
+  cerrado_plant_survivors_degree <-NULL
+  cerrado_plant_survivors_degree[[1]] <- nrow(mat.cerrado)
+  for(i in 1:length(cerrado_new.mat_degree)) {cerrado_plant_survivors_degree[i] <- length(which(rowSums(cerrado_new.mat_degree[[i]])>0))} 
+  
+cerrado_robustness_degree <-(sum(unlist(cerrado_plant_survivors_degree)))/((ncol(mat.cerrado))*(nrow(mat.cerrado)))
+
+# get output ready to join with others for graphing
+
+cerrado_plant_survivors_degree <- as.data.frame(unlist(cerrado_plant_survivors_degree))
+
+# make a frugivores removed column
+
+cerrado_plant_survivors_degree$n_frugs_removed <- seq(from = 0, to = 91)
+
+# rename survivor column
+
+names(cerrado_plant_survivors_degree)[1]<-"n_plants_remaining"
+
+# add removal scenario column
+cerrado_plant_survivors_degree$scenario<-"descending_degree"
+
+# clean
+
+rm(i, cerrado_new.mat_degree, mat.cerrado.temp, cerrado_degree_triggerlist)
+```
+
+```{r serra do mar degree-based removal simulation}
+ serra.do.mar_degree_triggerlist <- serra.do.mar_frug_md %>% dplyr::arrange(desc(Frugivore_degree)) %>% dplyr::select(Frugivore_Species)
+serra.do.mar_degree_triggerlist <- unlist(serra.do.mar_degree_triggerlist)
+  #-----------------------------------------#
+  serra.do.mar_new.mat_degree<-list()
+  serra.do.mar_new.mat_degree[[1]]<-mat.serra.do.mar
+  for(i in 1:length(serra.do.mar_degree_triggerlist)) {
+    mat.serra.do.mar.temp <- serra.do.mar_new.mat_degree[[i]]
+    mat.serra.do.mar.temp[ ,which(colnames(mat.serra.do.mar.temp) == serra.do.mar_degree_triggerlist[i])]<-0
+    serra.do.mar_new.mat_degree[[i+1]] <- mat.serra.do.mar.temp
+  }
+  serra.do.mar_plant_survivors_degree <-NULL
+  serra.do.mar_plant_survivors_degree[[1]] <- nrow(mat.serra.do.mar)
+  for(i in 1:length(serra.do.mar_new.mat_degree)) {serra.do.mar_plant_survivors_degree[i] <- length(which(rowSums(serra.do.mar_new.mat_degree[[i]])>0))} 
+  
+serra.do.mar_robustness_degree <-(sum(unlist(serra.do.mar_plant_survivors_degree)))/((ncol(mat.serra.do.mar))*(nrow(mat.serra.do.mar)))
+
+# get output ready to join with others for graphing
+
+serra.do.mar_plant_survivors_degree <- as.data.frame(unlist(serra.do.mar_plant_survivors_degree))
+
+# make a frugivores removed column
+
+serra.do.mar_plant_survivors_degree$n_frugs_removed <- seq(from = 0, to = 173)
+
+# rename survivor column
+
+names(serra.do.mar_plant_survivors_degree)[1]<-"n_plants_remaining"
+
+# add removal scenario column
+serra.do.mar_plant_survivors_degree$scenario<-"descending_degree"
+
+# clean
+
+rm(i, serra.do.mar_new.mat_degree, mat.serra.do.mar.temp, serra.do.mar_degree_triggerlist)
+```
+
+```{r mata caducifolia degree-based removal simulation}
+ mata.caducifolia_degree_triggerlist <- mata.caducifolia_frug_md %>% dplyr::arrange(desc(Frugivore_degree)) %>% dplyr::select(Frugivore_Species)
+mata.caducifolia_degree_triggerlist <- unlist(mata.caducifolia_degree_triggerlist)
+  #-----------------------------------------#
+  mata.caducifolia_new.mat_degree<-list()
+  mata.caducifolia_new.mat_degree[[1]]<-mat.mata.caducifolia
+  for(i in 1:length(mata.caducifolia_degree_triggerlist)) {
+    mat.mata.caducifolia.temp <- mata.caducifolia_new.mat_degree[[i]]
+    mat.mata.caducifolia.temp[ ,which(colnames(mat.mata.caducifolia.temp) == mata.caducifolia_degree_triggerlist[i])]<-0
+    mata.caducifolia_new.mat_degree[[i+1]] <- mat.mata.caducifolia.temp
+  }
+  mata.caducifolia_plant_survivors_degree <-NULL
+  mata.caducifolia_plant_survivors_degree[[1]] <- nrow(mat.mata.caducifolia)
+  for(i in 1:length(mata.caducifolia_new.mat_degree)) {mata.caducifolia_plant_survivors_degree[i] <- length(which(rowSums(mata.caducifolia_new.mat_degree[[i]])>0))} 
+  
+mata.caducifolia_robustness_degree <-(sum(unlist(mata.caducifolia_plant_survivors_degree)))/((ncol(mat.mata.caducifolia))*(nrow(mat.mata.caducifolia)))
+
+# get output ready to join with others for graphing
+
+mata.caducifolia_plant_survivors_degree <- as.data.frame(unlist(mata.caducifolia_plant_survivors_degree))
+
+# make a frugivores removed column
+
+mata.caducifolia_plant_survivors_degree$n_frugs_removed <- seq(from = 0, to = 84)
+
+# rename survivor column
+
+names(mata.caducifolia_plant_survivors_degree)[1]<-"n_plants_remaining"
+
+# add removal scenario column
+mata.caducifolia_plant_survivors_degree$scenario<-"descending_degree"
+
+# clean
+
+rm(i, mata.caducifolia_new.mat_degree, mat.mata.caducifolia.temp, mata.caducifolia_degree_triggerlist)
+```
+
+### figures, analysis 3
+
+#### join data from above scenarios
+
+```{r merge datasets for graphing}
+
+# BIOME:
+
+# biome-scale I need to join biome_plant_survivors_random_btstrped, biome_plant_survivors_IUCN_btstrped, biome_plant_survivors_bodymass, biome_plant_survivors_degree
+
+# different column names exist and need to be unified: random and IUCN data has upper and lower CI data, while the degree and body mass scenarios do not. Just duplicate the plant survivor columns in those two dataframes into 'CI' columns so that the dataframe column names and numbers match up and are mergeable. 
+
+# for my random and iucn scenarios add scenario column, rename 'mean' to 'n_plants_remaining'
+biome_plant_survivors_random_btstrped$scenario <- "random"
+names(biome_plant_survivors_random_btstrped)[1] <- "n_plants_remaining"
+biome_plant_survivors_IUCN_btstrped$scenario <- "descending_endangerment"
+names(biome_plant_survivors_IUCN_btstrped)[1] <- "n_plants_remaining"
+
+# for my bodymass and degree based removal data, add the filler CI interval columns that are just duplicates of the raw values bc these are not scenarios that can vary in outcome
+biome_plant_survivors_bodymass$upper_95.ci<-biome_plant_survivors_bodymass$n_plants_remaining
+biome_plant_survivors_bodymass$lower_95.ci<-biome_plant_survivors_bodymass$n_plants_remaining
+biome_plant_survivors_degree$upper_95.ci<-biome_plant_survivors_degree$n_plants_remaining
+biome_plant_survivors_degree$lower_95.ci<-biome_plant_survivors_degree$n_plants_remaining
+
+# join
+
+biome_plant_survivors <- rbind(biome_plant_survivors_random_btstrped, biome_plant_survivors_IUCN_btstrped, biome_plant_survivors_bodymass, biome_plant_survivors_degree)
+
+# clean
+
+rm(biome_plant_survivors_bodymass, biome_plant_survivors_degree, biome_plant_survivors_IUCN_btstrped, biome_plant_survivors_random_btstrped)
+```
+
+```{r rbind the ecoregion coexinction data for graphing, eval=FALSE}
+# PAUSING POINT - NOT DONE YET, PICK UP HERE WITH CLEANING
+#ECOREGIONS:
+
+# same process as above, but also add ecoregion column to all
+
+# araucaria
+
+araucaria_plant_survivors_random_btstrped$scenario <- "random"
+araucaria_plant_survivors_random_btstrped$ecoregion <- "araucaria"
+names(araucaria_plant_survivors_random_btstrped)[1] <- "n_plants_remaining"
+araucaria_plant_survivors_IUCN_btstrped$scenario <- "descending_endangerment"
+araucaria_plant_survivors_IUCN_btstrped$ecoregion <- "araucaria"
+names(araucaria_plant_survivors_IUCN_btstrped)[1] <- "n_plants_remaining"
+
+araucaria_plant_survivors_bodymass$upper_95.ci<-araucaria_plant_survivors_bodymass$n_plants_remaining
+araucaria_plant_survivors_bodymass$lower_95.ci<-araucaria_plant_survivors_bodymass$n_plants_remaining
+araucaria_plant_survivors_degree$upper_95.ci<-araucaria_plant_survivors_degree$n_plants_remaining
+araucaria_plant_survivors_degree$lower_95.ci<-araucaria_plant_survivors_degree$n_plants_remaining
+
+araucaria_plant_survivors_bodymass$ecoregion<-"araucaria"
+araucaria_plant_survivors_degree$ecoregion<-"araucaria"
+
+# join
+
+biome_plant_survivors <- rbind(biome_plant_survivors_random_btstrped, biome_plant_survivors_IUCN_btstrped, biome_plant_survivors_bodymass, biome_plant_survivors_degree)
+```
+
+```
+
 # Session Info
 
 This is key (though minimally) for reproducibility---replicate the code chunk below exactly
