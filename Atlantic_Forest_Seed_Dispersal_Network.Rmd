@@ -43,7 +43,6 @@ In our analysis, we:
 # Create package list
 
 Packages <- c("tidyverse", "knitr", "car", "bipartite", "MASS", "ggplot2", "lme4", "boot", "gridExtra", "lattice", "gginnards", "viridis", "viridisLite", "raster", "sp", "rgdal", "cowplot", "AER", "pscl", "degreenet", "DHARMa", "broom.mixed", "grid", "ggpubr")
-
 # Load packages
 
 lapply(Packages, library, character.only = TRUE)
@@ -1368,16 +1367,16 @@ araucaria_random.means.boot<-araucaria_random.means.boot %>% add_row(mean = 0)
 araucaria_random.means.boot<-araucaria_random.means.boot %>% add_row(mean = 228, .before = 1)
 
 araucaria_random.lower.cis<-as.data.frame(unlist(araucaria_random.lower.cis))
-names(araucaria_random.lower.cis)[1]<-"lower.95.ci"
+names(araucaria_random.lower.cis)[1]<-"lower_95.ci"
 
-araucaria_random.lower.cis<-araucaria_random.lower.cis %>% add_row(lower.95.ci = 0) 
-araucaria_random.lower.cis<-araucaria_random.lower.cis %>% add_row(lower.95.ci = 228, .before = 1) 
+araucaria_random.lower.cis<-araucaria_random.lower.cis %>% add_row(lower_95.ci = 0) 
+araucaria_random.lower.cis<-araucaria_random.lower.cis %>% add_row(lower_95.ci = 228, .before = 1) 
 
 araucaria_random.upper.cis<-as.data.frame(unlist(araucaria_random.upper.cis))
-names(araucaria_random.upper.cis)[1]<-"upper.95.ci"
+names(araucaria_random.upper.cis)[1]<-"upper_95.ci"
 
-araucaria_random.upper.cis<-araucaria_random.upper.cis %>% add_row(upper.95.ci = 0)
-araucaria_random.upper.cis<-araucaria_random.upper.cis %>% add_row(upper.95.ci = 228, .before = 1) 
+araucaria_random.upper.cis<-araucaria_random.upper.cis %>% add_row(upper_95.ci = 0)
+araucaria_random.upper.cis<-araucaria_random.upper.cis %>% add_row(upper_95.ci = 228, .before = 1) 
 
 araucaria_plant_survivors_random_btstrped<-cbind(araucaria_random.means.boot, araucaria_random.upper.cis, araucaria_random.lower.cis)
 araucaria_plant_survivors_random_btstrped$n_frugs_removed<-seq(from = 0, to = 131)
@@ -1491,16 +1490,16 @@ cerrado_random.means.boot<-cerrado_random.means.boot %>% add_row(mean = 0)
 cerrado_random.means.boot<-cerrado_random.means.boot %>% add_row(mean = 55, .before = 1)
 
 cerrado_random.lower.cis<-as.data.frame(unlist(cerrado_random.lower.cis))
-names(cerrado_random.lower.cis)[1]<-"lower.95.ci"
+names(cerrado_random.lower.cis)[1]<-"lower_95.ci"
 
-cerrado_random.lower.cis<-cerrado_random.lower.cis %>% add_row(lower.95.ci = 0) 
-cerrado_random.lower.cis<-cerrado_random.lower.cis %>% add_row(lower.95.ci = 55, .before = 1) 
+cerrado_random.lower.cis<-cerrado_random.lower.cis %>% add_row(lower_95.ci = 0) 
+cerrado_random.lower.cis<-cerrado_random.lower.cis %>% add_row(lower_95.ci = 55, .before = 1) 
 
 cerrado_random.upper.cis<-as.data.frame(unlist(cerrado_random.upper.cis))
-names(cerrado_random.upper.cis)[1]<-"upper.95.ci"
+names(cerrado_random.upper.cis)[1]<-"upper_95.ci"
 
-cerrado_random.upper.cis<-cerrado_random.upper.cis %>% add_row(upper.95.ci = 0)
-cerrado_random.upper.cis<-cerrado_random.upper.cis %>% add_row(upper.95.ci = 55, .before = 1) 
+cerrado_random.upper.cis<-cerrado_random.upper.cis %>% add_row(upper_95.ci = 0)
+cerrado_random.upper.cis<-cerrado_random.upper.cis %>% add_row(upper_95.ci = 55, .before = 1) 
 
 cerrado_plant_survivors_random_btstrped<-cbind(cerrado_random.means.boot, cerrado_random.upper.cis, cerrado_random.lower.cis)
 cerrado_plant_survivors_random_btstrped$n_frugs_removed<-seq(from = 0, to = 91)
@@ -1618,16 +1617,16 @@ serra.do.mar_random.means.boot<-serra.do.mar_random.means.boot %>% add_row(mean 
 serra.do.mar_random.means.boot<-serra.do.mar_random.means.boot %>% add_row(mean = 246, .before = 1)
 
 serra.do.mar_random.lower.cis<-as.data.frame(unlist(serra.do.mar_random.lower.cis))
-names(serra.do.mar_random.lower.cis)[1]<-"lower.95.ci"
+names(serra.do.mar_random.lower.cis)[1]<-"lower_95.ci"
 
-serra.do.mar_random.lower.cis<-serra.do.mar_random.lower.cis %>% add_row(lower.95.ci = 0) 
-serra.do.mar_random.lower.cis<-serra.do.mar_random.lower.cis %>% add_row(lower.95.ci = 246, .before = 1) 
+serra.do.mar_random.lower.cis<-serra.do.mar_random.lower.cis %>% add_row(lower_95.ci = 0) 
+serra.do.mar_random.lower.cis<-serra.do.mar_random.lower.cis %>% add_row(lower_95.ci = 246, .before = 1) 
 
 serra.do.mar_random.upper.cis<-as.data.frame(unlist(serra.do.mar_random.upper.cis))
-names(serra.do.mar_random.upper.cis)[1]<-"upper.95.ci"
+names(serra.do.mar_random.upper.cis)[1]<-"upper_95.ci"
 
-serra.do.mar_random.upper.cis<-serra.do.mar_random.upper.cis %>% add_row(upper.95.ci = 0)
-serra.do.mar_random.upper.cis<-serra.do.mar_random.upper.cis %>% add_row(upper.95.ci = 246, .before = 1) 
+serra.do.mar_random.upper.cis<-serra.do.mar_random.upper.cis %>% add_row(upper_95.ci = 0)
+serra.do.mar_random.upper.cis<-serra.do.mar_random.upper.cis %>% add_row(upper_95.ci = 246, .before = 1) 
 
 serra.do.mar_plant_survivors_random_btstrped <- cbind(serra.do.mar_random.means.boot, serra.do.mar_random.upper.cis, serra.do.mar_random.lower.cis)
 
@@ -1747,16 +1746,16 @@ mata.caducifolia_random.means.boot<-mata.caducifolia_random.means.boot %>% add_r
 mata.caducifolia_random.means.boot<-mata.caducifolia_random.means.boot %>% add_row(mean = 129, .before = 1)
 
 mata.caducifolia_random.lower.cis<-as.data.frame(unlist(mata.caducifolia_random.lower.cis))
-names(mata.caducifolia_random.lower.cis)[1]<-"lower.95.ci"
+names(mata.caducifolia_random.lower.cis)[1]<-"lower_95.ci"
 
-mata.caducifolia_random.lower.cis<-mata.caducifolia_random.lower.cis %>% add_row(lower.95.ci = 0) 
-mata.caducifolia_random.lower.cis<-mata.caducifolia_random.lower.cis %>% add_row(lower.95.ci = 129, .before = 1) 
+mata.caducifolia_random.lower.cis<-mata.caducifolia_random.lower.cis %>% add_row(lower_95.ci = 0) 
+mata.caducifolia_random.lower.cis<-mata.caducifolia_random.lower.cis %>% add_row(lower_95.ci = 129, .before = 1) 
 
 mata.caducifolia_random.upper.cis<-as.data.frame(unlist(mata.caducifolia_random.upper.cis))
-names(mata.caducifolia_random.upper.cis)[1]<-"upper.95.ci"
+names(mata.caducifolia_random.upper.cis)[1]<-"upper_95.ci"
 
-mata.caducifolia_random.upper.cis<-mata.caducifolia_random.upper.cis %>% add_row(upper.95.ci = 0)
-mata.caducifolia_random.upper.cis<-mata.caducifolia_random.upper.cis %>% add_row(upper.95.ci = 129, .before = 1) 
+mata.caducifolia_random.upper.cis<-mata.caducifolia_random.upper.cis %>% add_row(upper_95.ci = 0)
+mata.caducifolia_random.upper.cis<-mata.caducifolia_random.upper.cis %>% add_row(upper_95.ci = 129, .before = 1) 
 
 mata.caducifolia_plant_survivors_random_btstrped<-cbind(mata.caducifolia_random.means.boot, mata.caducifolia_random.upper.cis, mata.caducifolia_random.lower.cis)
 mata.caducifolia_plant_survivors_random_btstrped$n_frugs_removed<-seq(from = 0, to = 84)
@@ -1969,7 +1968,7 @@ biome_plant_survivors_IUCN_btstrped$n_frugs_removed<-seq(from = 0, to = 321)
 
 # clean
 
-rm(means, mean.int.95.BCa, i, biome_IUCN_lower_cis, biome_IUCN_upper_cis, biome_IUCN_means_boot, biome_plant_survivors_IUCN, temp_biome_IUCN)
+rm(means, mean.int.95.BCa, i, biome_IUCN_lower_cis, biome_IUCN_upper_cis, biome_IUCN_means_boot, biome_plant_survivors_IUCN)
 ```
 
 
@@ -2030,7 +2029,7 @@ AR_plant_survivors_IUCN<-as.data.frame(AR_plant_survivors_IUCN_mat)
 
 # clean
 
-rm(AR_plant_survivors_vec_IUCN_copy, AR_plant_survivors_IUCN_df, AR_plant_survivors_IUCN_mat, AR.robustness.ll,AR.survivors.ll, AR.new.mat, temp_AR_IUCN, AR.triggerlist.IUCN, AR_IUCN_s1, AR_plant_survivors_vec_IUCN)
+rm(i, j, AR_plant_survivors_vec_IUCN_copy, AR_plant_survivors_IUCN_df, AR_plant_survivors_IUCN_mat, AR.robustness.ll,AR.survivors.ll, AR.new.mat, temp_AR_IUCN, AR.triggerlist.IUCN, AR_IUCN_s1, AR_plant_survivors_vec_IUCN)
 ```
 
 ```{r araucaria iucn based removals bootstrapping, cache=TRUE}
@@ -2161,7 +2160,7 @@ cerrado_plant_survivors_IUCN<-as.data.frame(cerrado_plant_survivors_IUCN_mat)
 
 # clean
 
-rm(cerrado_plant_survivors_vec_IUCN_copy, cerrado_plant_survivors_IUCN_df, cerrado_plant_survivors_IUCN_mat, cerrado_robustness.ll,cerrado_survivors.ll, cerrado_new.mat, temp_cerrado_IUCN, cerrado_triggerlist.IUCN, cerrado_IUCN_s1, cerrado_plant_survivors_vec_IUCN)
+rm(cerrado_plant_survivors_vec_IUCN_copy, cerrado_plant_survivors_IUCN_df, cerrado_plant_survivors_IUCN_mat, cerrado_robustness.ll,cerrado_survivors.ll, cerrado_new.mat, temp_cerrado_IUCN, cerrado_triggerlist.IUCN, cerrado_IUCN_s1, cerrado_plant_survivors_vec_IUCN, i, j)
 ```
 
 ```{r cerrado iucn based removals bootstrapping, cache=TRUE}
@@ -2504,7 +2503,7 @@ mata.caducifolia_plant_survivors_IUCN<-as.data.frame(mata.caducifolia_plant_surv
 
 # clean
 
-rm(mata.caducifolia_plant_survivors_vec_IUCN_copy, mata.caducifolia_plant_survivors_IUCN_df, mata.caducifolia_plant_survivors_IUCN_mat, mata.caducifolia.robustness.ll,mata.caducifolia.survivors.ll, mata.caducifolia.new.mat, temp_mata.caducifolia_IUCN, mata.caducifolia.triggerlist.IUCN, mata.caducifolia_IUCN_s1, mata.caducifolia_plant_survivors_vec_IUCN)
+rm(mata.caducifolia_plant_survivors_vec_IUCN_copy, mata.caducifolia_plant_survivors_IUCN_df, mata.caducifolia_plant_survivors_IUCN_mat, mata.caducifolia.robustness.ll,mata.caducifolia.survivors.ll, mata.caducifolia.new.mat, temp_mata.caducifolia_IUCN, mata.caducifolia.triggerlist.IUCN, mata.caducifolia_IUCN_s1, mata.caducifolia_plant_survivors_vec_IUCN, i, j)
 
 ```
 
@@ -2962,11 +2961,13 @@ mata.caducifolia_plant_survivors_degree$scenario<-"descending_degree"
 rm(i, mata.caducifolia_new.mat_degree, mat.mata.caducifolia.temp, mata.caducifolia_degree_triggerlist)
 ```
 
-### figures, analysis 3
+### Figures, Analysis 3
 
-#### join data from above scenarios
+Each network (biome, plus each ecoregion) has a full version and a zoomed in version of a figure showing the plant coextinctions following the different removal scenarios. The zoomed in versions are enlargements of the graph portions that only show up until the last high risk frugivore (greater than 'least concern' category) is removed from the network.
 
-```{r merge datasets for graphing}
+#### Join data from above scenarios
+
+```{r merge datasets for graphing starting with biome data}
 
 # BIOME:
 
@@ -2995,9 +2996,7 @@ biome_plant_survivors <- rbind(biome_plant_survivors_random_btstrped, biome_plan
 rm(biome_plant_survivors_bodymass, biome_plant_survivors_degree, biome_plant_survivors_IUCN_btstrped, biome_plant_survivors_random_btstrped)
 ```
 
-```{r rbind the ecoregion coexinction data for graphing, eval=FALSE}
-# PAUSING POINT - NOT DONE YET, PICK UP HERE WITH CLEANING
-#ECOREGIONS:
+```{r rbind the ecoregion coexinction data for graphing}
 
 # same process as above, but also add ecoregion column to all
 
@@ -3020,8 +3019,141 @@ araucaria_plant_survivors_degree$ecoregion<-"araucaria"
 
 # join
 
-biome_plant_survivors <- rbind(biome_plant_survivors_random_btstrped, biome_plant_survivors_IUCN_btstrped, biome_plant_survivors_bodymass, biome_plant_survivors_degree)
+araucaria_plant_survivors <- rbind(araucaria_plant_survivors_random_btstrped, araucaria_plant_survivors_IUCN_btstrped, araucaria_plant_survivors_bodymass, araucaria_plant_survivors_degree)
+
+# cerrado
+
+cerrado_plant_survivors_random_btstrped$scenario <- "random"
+cerrado_plant_survivors_random_btstrped$ecoregion <- "cerrado"
+names(cerrado_plant_survivors_random_btstrped)[1] <- "n_plants_remaining"
+cerrado_plant_survivors_IUCN_btstrped$scenario <- "descending_endangerment"
+cerrado_plant_survivors_IUCN_btstrped$ecoregion <- "cerrado"
+names(cerrado_plant_survivors_IUCN_btstrped)[1] <- "n_plants_remaining"
+
+cerrado_plant_survivors_bodymass$upper_95.ci<-cerrado_plant_survivors_bodymass$n_plants_remaining
+cerrado_plant_survivors_bodymass$lower_95.ci<-cerrado_plant_survivors_bodymass$n_plants_remaining
+cerrado_plant_survivors_degree$upper_95.ci<-cerrado_plant_survivors_degree$n_plants_remaining
+cerrado_plant_survivors_degree$lower_95.ci<-cerrado_plant_survivors_degree$n_plants_remaining
+
+cerrado_plant_survivors_bodymass$ecoregion<-"cerrado"
+cerrado_plant_survivors_degree$ecoregion<-"cerrado"
+
+# join
+
+cerrado_plant_survivors <- rbind(cerrado_plant_survivors_random_btstrped, cerrado_plant_survivors_IUCN_btstrped, cerrado_plant_survivors_bodymass, cerrado_plant_survivors_degree)
+
+#serra do mar
+
+serra.do.mar_plant_survivors_random_btstrped$scenario <- "random"
+serra.do.mar_plant_survivors_random_btstrped$ecoregion <- "serra.do.mar"
+names(serra.do.mar_plant_survivors_random_btstrped)[1] <- "n_plants_remaining"
+serra.do.mar_plant_survivors_IUCN_btstrped$scenario <- "descending_endangerment"
+serra.do.mar_plant_survivors_IUCN_btstrped$ecoregion <- "serra.do.mar"
+names(serra.do.mar_plant_survivors_IUCN_btstrped)[1] <- "n_plants_remaining"
+
+serra.do.mar_plant_survivors_bodymass$upper_95.ci<-serra.do.mar_plant_survivors_bodymass$n_plants_remaining
+serra.do.mar_plant_survivors_bodymass$lower_95.ci<-serra.do.mar_plant_survivors_bodymass$n_plants_remaining
+serra.do.mar_plant_survivors_degree$upper_95.ci<-serra.do.mar_plant_survivors_degree$n_plants_remaining
+serra.do.mar_plant_survivors_degree$lower_95.ci<-serra.do.mar_plant_survivors_degree$n_plants_remaining
+
+serra.do.mar_plant_survivors_bodymass$ecoregion<-"serra.do.mar"
+serra.do.mar_plant_survivors_degree$ecoregion<-"serra.do.mar"
+
+# join
+
+serra.do.mar_plant_survivors <- rbind(serra.do.mar_plant_survivors_random_btstrped, serra.do.mar_plant_survivors_IUCN_btstrped, serra.do.mar_plant_survivors_bodymass, serra.do.mar_plant_survivors_degree)
+
+# mata caducifolia
+
+mata.caducifolia_plant_survivors_random_btstrped$scenario <- "random"
+mata.caducifolia_plant_survivors_random_btstrped$ecoregion <- "mata.caducifolia"
+names(mata.caducifolia_plant_survivors_random_btstrped)[1] <- "n_plants_remaining"
+mata.caducifolia_plant_survivors_IUCN_btstrped$scenario <- "descending_endangerment"
+mata.caducifolia_plant_survivors_IUCN_btstrped$ecoregion <- "mata.caducifolia"
+names(mata.caducifolia_plant_survivors_IUCN_btstrped)[1] <- "n_plants_remaining"
+
+mata.caducifolia_plant_survivors_bodymass$upper_95.ci<-mata.caducifolia_plant_survivors_bodymass$n_plants_remaining
+mata.caducifolia_plant_survivors_bodymass$lower_95.ci<-mata.caducifolia_plant_survivors_bodymass$n_plants_remaining
+mata.caducifolia_plant_survivors_degree$upper_95.ci<-mata.caducifolia_plant_survivors_degree$n_plants_remaining
+mata.caducifolia_plant_survivors_degree$lower_95.ci<-mata.caducifolia_plant_survivors_degree$n_plants_remaining
+
+mata.caducifolia_plant_survivors_bodymass$ecoregion<-"mata.caducifolia"
+mata.caducifolia_plant_survivors_degree$ecoregion<-"mata.caducifolia"
+
+# join
+
+mata.caducifolia_plant_survivors <- rbind(mata.caducifolia_plant_survivors_random_btstrped, mata.caducifolia_plant_survivors_IUCN_btstrped, mata.caducifolia_plant_survivors_bodymass, mata.caducifolia_plant_survivors_degree)
+
+# join them all
+
+ecoregion_coextinctions <- rbind(araucaria_plant_survivors, cerrado_plant_survivors, serra.do.mar_plant_survivors, mata.caducifolia_plant_survivors)
+
+rm(araucaria_plant_survivors_random_btstrped, araucaria_plant_survivors_IUCN_btstrped, araucaria_plant_survivors_bodymass, araucaria_plant_survivors_degree, araucaria_plant_survivors, cerrado_plant_survivors_random_btstrped, cerrado_plant_survivors_IUCN_btstrped, cerrado_plant_survivors_bodymass, cerrado_plant_survivors_degree, cerrado_plant_survivors, serra.do.mar_plant_survivors_random_btstrped, serra.do.mar_plant_survivors_IUCN_btstrped, serra.do.mar_plant_survivors_bodymass, serra.do.mar_plant_survivors_degree, serra.do.mar_plant_survivors,mata.caducifolia_plant_survivors_random_btstrped, mata.caducifolia_plant_survivors_IUCN_btstrped, mata.caducifolia_plant_survivors_bodymass, mata.caducifolia_plant_survivors_degree, mata.caducifolia_plant_survivors) 
 ```
+
+#### Biome coextinction figure
+
+Biome-scale coextinction figure, showing (a) the full network for each removal scenario until all frugivores have been removed and (b) an enlargement of the rectangle in (a) showing the network up until all frugivores at high risk of extinction are removed, illustrating approximately a quarter of the network's tree species would be left without dispersers. 
+```{r biome full coextinction plot}
+biome_p2 <- biome_plant_survivors %>%
+  mutate(scenario = factor(scenario, levels = c("descending_degree", "descending_bodymass", "descending_endangerment", "random" ))) %>%
+  ggplot(aes(x = n_frugs_removed, y = n_plants_remaining, group = scenario, color = scenario, linetype = scenario)) + 
+  geom_line(size=0.9) +  scale_linetype_manual(values=c(3,2,1,4), labels = c("Most-to-least connected", "Descending body mass", "Descending risk of extinction", "Random")) + 
+  theme_bw() + theme(panel.grid.minor = element_blank()) + labs(y="Plants without extant dispersers", x = "# frugivore species lost") + 
+  theme(axis.text = element_text(size = 11, color = "black")) +
+  theme(axis.title = element_text(size = 11)) + 
+  scale_color_manual(values = c("chocolate3", "cyan4", "darkred", "gray"), labels = c("Most-to-least connected", "Descending body mass", "Descending risk of extinction", "Random")) + theme(legend.title = element_blank()) + theme(legend.position = "none") + labs(tag = "(a)") 
+
+# annotate zoom with endangerment labels
+
+biome_p2_zoom <- biome_p2 + ylim(550,786) + xlim(0, 50) + labs(tag = "(b)") + annotate(geom = "segment", x = 5, y = 778, xend = 5, yend = 734, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 5, y =786, label = "CR", fontface = "bold") + 
+  annotate(geom = "segment", x = 15, y = 778, xend = 15, yend = 630, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 15, y =786, label = "EN", fontface = "bold") + 
+  annotate(geom = "segment", x = 25, y = 778, xend = 25, yend = 599, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 25, y =786, label = "VU", fontface = "bold") + 
+  annotate(geom = "segment", x = 44, y = 778, xend = 44, yend = 575, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 44, y =786, label = "NT", fontface = "bold")
+
+# add rectangle of area to zoom in on (if added first, it shows up in the zoom version too)
+
+biome_p3 <- biome_p2 + theme(legend.position="none")+ geom_rect(mapping = aes (xmin = 0, xmax=50, ymin = 550, ymax=778), alpha = 0, color = "black", linetype = 1)
+
+# actually, make it so that the zoomed version is a proportion of the network
+
+biome_plant_survivors$proportion_plants_remaining <- biome_plant_survivors$n_plants_remaining/777
+
+biome_plant_survivors$proportion_frugivores_removed <- biome_plant_survivors$n_frugs_removed/321
+
+# full plot to get zoom from:
+
+biome_proportions_full <- biome_plant_survivors %>%
+  mutate(scenario = factor(scenario, levels = c("descending_degree", "descending_bodymass", "descending_endangerment", "random" ))) %>%
+  ggplot(aes(x = proportion_frugivores_removed, y = proportion_plants_remaining, group = scenario, color = scenario, linetype = scenario)) + 
+  geom_line(size=0.9) +  scale_linetype_manual(values=c(3,2,1,4), labels = c("Most-to-least connected", "Descending body mass", "Descending risk of extinction", "Random")) + 
+  theme_bw() + theme(panel.grid.minor = element_blank()) + labs(y="Proportion of plants without extant dispersers", x = "Proportion frugivore species lost") + 
+  theme(axis.text = element_text(size = 11, color = "black")) +
+  theme(axis.title = element_text(size = 11)) + 
+  scale_color_manual(values = c("chocolate3", "cyan4", "darkred", "gray"), labels = c("Most-to-least connected", "Descending body mass", "Descending risk of extinction", "Random")) + theme(legend.title = element_blank()) + theme(legend.position = "none") + labs(tag = "(a)") 
+
+# zoom with proportions for axis
+
+biome_proportion_zoom <- biome_proportions_full + ylim(550/777,786/777) + xlim(0, 50/321) + labs(tag = "(b)") + annotate(geom = "segment", alpha = 0.75, x = 5/321, y = 778/777, xend = 5/321, yend = 734/777, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 5/321, y =786/777, label = "CR") + 
+  annotate(geom = "segment",  alpha = 0.75,x = 15/321, y = 778/777, xend = 15/321, yend = 630/777, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 15/321, y =786/777, label = "EN") + 
+  annotate(geom = "segment", alpha = 0.75, x = 25/321, y = 778/777, xend = 25/321, yend = 599/777, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 25/321, y =786/777, label = "VU") + 
+  annotate(geom = "segment", alpha = 0.75, x = 44/321, y = 778/777, xend = 44/321, yend = 575/777, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 44/321, y =786/777, label = "NT")
+
+save <- ggarrange(biome_p3, biome_proportion_zoom, common.legend = TRUE)
+save
+
+# save it
+
+# ggsave(save, file = "Biome_coextinction_panel.pdf", units = "in", width = 6.75, height = 4, dpi = 400)
+
+# clean
+rm(save, biome_p2, biome_p3, biome_proportion_zoom, biome_proportions_full, biome_p2_zoom)
+
+```
+
+Enlargement of portion of network knockouts until high risk frugivores are all gone
+
+#### Ecoregion coextinction figures
 
 ```
 
