@@ -902,10 +902,6 @@ aov.biome.deg.m1 = Anova(biome.deg.m1) # simplify model results
 
 aov.biome.deg.m1 # display simplified results
 
-# save model results
-
-out.aov.biome.deg.m1 = tidy(aov.biome.deg.m1)
-# write.csv(out.aov.biome.deg.m1, file = "results/aov.biome.deg.m1-results.csv")
 
 # clean
 
@@ -1192,9 +1188,7 @@ aov.biome.deg.m2 = Anova(biome.deg.m2) # simplify model results
 
 aov.biome.deg.m2 # display model results in simplified form
 
-out.aov.biome.deg.m2 = tidy(aov.biome.deg.m2) # get ready to save
 
-# write.csv(out.aov.biome.deg.m2, file = "results/aov.biome.deg.poptrend.m2-results.csv") # save model output
 
 # clean
 
