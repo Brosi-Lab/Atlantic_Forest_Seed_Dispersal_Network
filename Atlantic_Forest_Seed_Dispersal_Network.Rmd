@@ -383,7 +383,7 @@ ER.df %>%
 ```
 
 Atividades Agricolas we've decided is a broad category of disturbed/secondary/agricultural areas, and although there is a large number of observations from regions fitting that description, it is not a single ecoregion with biological significance relevant to our study, so we are not going to use that as an 'ecoregion'.
-    *For most sampled, these are the top 3, which we will use: Cerrado, Serra do Mar, Mata Caducifolia.
+    * For most sampled, these are the top 3, which we will use: Cerrado, Serra do Mar, Mata Caducifolia.
 
 ### Isolate the ecoregions with best coverage
 
@@ -697,11 +697,13 @@ rm(temp, Frugivore_degree.CR, Frugivore_degree.SM, Frugivore_degree.MC, Plant_de
     + The scenarios are: decreasing order of IUCN status, body mass, and network degree; plus a random removal scenario
     + This is done for the biome-scale network and for each of the ecoregions
     + Bootstrapping is used to gain estimates and 95% confidence intervals (CI) following the IUCN-status-based and random loss simulations.
+* Analysis 4 evaluates relationships between specialist trees and endangered frugivores
+    + This is done by summarizing the data looking at how many trees with degrees 1-5 (spanning trees that are extreme specialists according to the dataset and those that are relatively highly specialized) rely on endangered frugivore partners
 
 
 ## Analysis 1: evaluating relationships between frugivore degree and endangerment status
 
-Negative binomial model evaluating effect of 'higher_risk' versus 'lower_risk' endangerment status of frugivores on their degree: are these two things related?
+* Negative binomial model evaluating effect of 'higher_risk' versus 'lower_risk' endangerment status of frugivores on their degree: are these two things related?
     + This is only done at the biome scale because the ecoregions have too small of sample sizes
     + Using negative binomial to account for overdispersion
     + To meet model assumptions, we subtract 1 from all degree values so that the count data includes zeros and is able to be modeled with our neg binomial approach
@@ -710,28 +712,29 @@ Negative binomial model evaluating effect of 'higher_risk' versus 'lower_risk' e
 
 #### biome-scale - frugivore degree for lower vs higher risk species
 
-* Frugivore degree distribution for the biome-scale network:
+__Frugivore degree distribution for the biome-scale network:__
 
 ```{r biome frugivore degree histogram, fig.width = 4, fig.height=4}
 
 hist(biome_frug_md$Frugivore_degree, breaks = 20, main = "Biome\n frugivore degrees", xlab = NULL)
 
 ```
-There are a lot of singletons and a few frugivores with degree > 50 but it drops off fast.
 
-* Mean degree for frugivores in 'lower risk' category:
+  There are a lot of singletons and a few frugivores with degree > 50 but it drops off fast.
+
+__Mean degree for frugivores in 'lower risk' category:__
 ```{r biome frugivore mean degree lower risk}
 
 mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_risk_level == "lower_risk")])
 
 ```
-* Mean degree for frugivores in 'higher risk' category:
+__Mean degree for frugivores in 'higher risk' category:__
 ```{r biome frugivore mean degree higher risk}
 
 mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_risk_level == "higher_risk")])
 
 ```
-* What do the two groups' histograms look like?
+__What do the two groups' histograms look like?__
 
 ```{r histograms for low and high risk frugivore degrees, warning=F}
 
@@ -742,13 +745,14 @@ hist(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_risk_level == "lowe
 hist(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_risk_level == "higher_risk")], breaks = 20, main = "Biome\n frugivore degrees: high risk", xlab = NULL)
 
 ```
-Definitely a lot more frugivores exist in the 'low risk' category. Lots of singletons in both groups. In high risk, see a bit of a more clumpy distribution and a bump around degree = 50, whereas lower risk category has a smoother tail with greater frequency of frugivores that disperse between 1-30 species. 
+
+  Definitely a lot more frugivores exist in the 'low risk' category. Lots of singletons in both groups. In high risk, see a bit of a more clumpy distribution and a bump around degree = 50, whereas lower risk category has a smoother tail with greater frequency of frugivores that disperse between 1-30 species. 
 
 #### ecoregion-scale - degree for lower vs higher risk species
 
-* This is all a repeat of what was examined above for the biome-scale, but now at smaller regional-scale networks to check for pattern consistency. 
+This is all a repeat of what was examined above for the biome-scale, but now at smaller regional-scale networks to check for pattern consistency. 
 
-* First, look at frugivore degree distribution for the ecoregion-scale networks:
+__First, look at frugivore degree distribution for the ecoregion-scale networks:__
 ```{r ecoregion frugivore degree histogram}
 
 par(mfrow=c(2,2))
@@ -761,10 +765,11 @@ hist(serra.do.mar_frug_md$Frugivore_degree, breaks =20, main = "Serra do Mar\n f
 
 hist(mata.caducifolia_frug_md$Frugivore_degree, breaks =20, main = "Mata caducifolia\n frugivore degrees", xlab = NULL) #kind of more like cerrado
 ```
-Similar to the biome-scale degree distributions. Noting that the cerrado has a more limited range of frugivore degree values than the other two ecoregions, but it is also the smallest of the 3 regional networks so that likely play a part in that difference.
 
-* What are the mean degrees per risk category per ecoregion?
-```{r summarize degree mean per ecoregion per risk level}
+  Similar to the biome-scale degree distributions. Noting that the cerrado has a more limited range of frugivore degree values than the other two ecoregions, but it is also the smallest of the 3 regional networks so that likely play a part in that difference.
+
+__What are the mean degrees per risk category per ecoregion?__
+```{r summarize degree mean per ecoregion per risk level, message=FALSE}
 # I'm going to make a temporary dataframe that I will use later in graphing
 # and it will have ecoregion information combined
 
@@ -807,10 +812,11 @@ names(eco_means_risk)[3] <- "mean" # name the column, will use this later in plo
 eco_means_risk
 
 ```
-Qualitatively, the higher risk frugivores also have higher mean degrees (e.g. they disperse more species of plants, on average, compared to lower risk ones). But it's important to remember here that some of the higher risk categories at the regional scale are pretty small - I think there are only 3 'high risk' frugivores in Cerrado network, for example. 
+
+  Qualitatively, the higher risk frugivores also have higher mean degrees (e.g. they disperse more species of plants, on average, compared to lower risk ones). But it's important to remember here that some of the higher risk categories at the regional scale are pretty small - I think there are only 3 'high risk' frugivores in Cerrado network, for example. 
 
 
-* As done with the biome-scale data, visually look at and compare histograms for frugivore degrees between the two groups for each ecoregion to get an idea of how data is distributed:
+__As done with the biome-scale data, visually look at and compare histograms for frugivore degrees between the two groups for each ecoregion to get an idea of how data is distributed:__
 
 ```{r histograms each category each ecoregion}
 
@@ -853,19 +859,21 @@ hist(mata.caducifolia_frug_md$Frugivore_degree[which(mata.caducifolia_frug_md$Fr
      main = "Mata caducifolia degrees\n high risk frugs", xlab = NULL)
 
 ```
-Nothing crazy or surprising here; we can see though with cerrado that of those 3 frugivores, one has relatively high degree while other two aren't remarkable (that pulled the mean up for that group obviously). Mata Caducifolia also is kinda split between a few high risk frugivores with relatively high degree for the region, but a larger portion are unremarkable.  
+
+  Nothing crazy or surprising here; we can see though with cerrado that of those 3 frugivores, one has relatively high degree while other two aren't remarkable (that pulled the mean up for that group obviously). Mata Caducifolia also is kinda split between a few high risk frugivores with relatively high degree for the region, but a larger portion are unremarkable.  
 
 
-* Number of frugivore species in higher versus lower risk groups: biome-scale
-```{r summarise how many species in each endangerment category at biome level}
+__Number of frugivore species in higher versus lower risk groups: biome-scale__
+```{r summarise how many species in each endangerment category at biome level, message=FALSE}
 
 biome_frug_md %>% group_by(Frug_risk_level) %>%
   summarise(count = length(Frugivore_Species))
 
 ```
 
-* Number of frugivore species in higher versus lower risk groups: ecoregion-scale
+  ~14% of frugivores in the network are in the higher risk category.
 
+__Number of frugivore species in higher versus lower risk groups: ecoregion-scale__
 ```{r number of species per risk level per ecoregion}
 eco_temp %>% # group by ecoregion and risk level, get me avgs
   group_by(ecoregion, Frug_risk_level) %>%
@@ -905,7 +913,7 @@ rm(aov.biome.deg.m1, out.aov.biome.deg.m1)
 
 ```
 
-* Summary
+__* Summary__
     + There is a non-significant trend of frugivores in the 'higher risk' category to have higher network degree values (diet breadths) than frugivores in the IUCN least concern category (Chisq = 1.86, p = 0.17)
 
 
@@ -928,7 +936,7 @@ rm(biome.deg.m1, sim.out.biome.deg.m1)
 ```
 
 
-The negative binomial model with the transformation of degree - 1 fits model assumptions.
+__* Summary: The negative binomial model with the transformation of degree - 1 fits model assumptions.__
 
 
 ### Analysis 1: biome-scale figure of frugivore degrees for higher and lower endangerment risk
@@ -988,7 +996,7 @@ biome_bootstrap.temp1[2,5] <- biome_bootstrap.LR[[5]]
 
 ```
 
-```{r make the plot for analysis 1}
+```{r make the plot for analysis 1, warning=FALSE}
 
 biome_deg.risk.level.plot <- biome_frug_md %>%
   
@@ -1052,14 +1060,14 @@ The steps in Analysis 2 are a repeat of Analysis 1 more or less, but here we are
 
 #### Biome-scale: network degree in the increasing population grouper and higher risk frugivore groups
 
-* Mean degree for frugivores in with increasing population sizes
+__Mean degree for frugivores in with increasing population sizes:___
 
 ```{r biome mean degree of frugivores with growing pops}
 
 mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_Population_Trend == "Increasing")])
 
 ```
-* Mean degree for frugivores in with decreasing population sizes
+__Mean degree for frugivores in with decreasing population sizes:__
 
 ```{r biome mean degree of frugivores with shrinking pops}
 
@@ -1067,7 +1075,7 @@ mean(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_Population_Trend ==
 
 ```
 
-* What do the two groups' histograms look like? ("pops" = populations)
+__What do the two groups' histograms look like? ("pops" = populations)__
 
 ```{r histograms for decreasing and high risk frugivore degrees at biome-scale}
 
@@ -1079,11 +1087,11 @@ hist(biome_frug_md$Frugivore_degree[which(biome_frug_md$Frug_Population_Trend ==
 
 ```
 
+  Like the other histograms, skewed with most frugivores interacting with less than 10 plant species, and a few hyper-generalists.
 
 #### Ecoregion-scale: network degree for frugivores of increasing versus decreasing populations sizes
 
-* Mean degrees per population trajectory category per ecoregion
-
+__Mean degrees per population trajectory category per ecoregion:__
 ```{r ecoregion frugivore mean degrees for pops that are shrinking versus growing}
 
 # summarize - see means per group
@@ -1100,7 +1108,8 @@ eco_means_pops # look at it
 ```
 General pattern seems to be that average degree values are higher in decreasing populations compared with increasing populations. 
 
-* Visually look at and compare histograms for frugivore degrees between the two groups for each ecoregion:
+
+__Visually look at and compare histograms for frugivore degrees between the two groups for each ecoregion:__
 
 ```{r histograms of frugivore degrees}
 
@@ -1142,8 +1151,7 @@ hist(mata.caducifolia_frug_md$Frugivore_degree[which(mata.caducifolia_frug_md$Fr
 
 Looks like cerrado doesn't have many frugivores with increasing populations, and those that it does have don't disperse many spp.
 
-* Number of frugivore species in decreasing and increasing population groups: biome-scale
-
+__Number of frugivore species in decreasing and increasing population groups: biome-scale__
 ```{r summarise how many species in each population growth trend category at biome level}
 
 biome_frug_md %>% group_by(Frug_Population_Trend) %>%
@@ -1151,16 +1159,18 @@ biome_frug_md %>% group_by(Frug_Population_Trend) %>%
 
 ```
 
-* Number of frugivore species in decreasing and increasing population groups: ecoregion-scale
+  Interesting to note that a pretty large portion are decreasing or have stable populations.
 
-```{r summarise number frugivores per pop category at ecoregion level}
+__Number of frugivore species in decreasing and increasing population groups: ecoregion-scale__
+
+```{r summarise number frugivores per pop category at ecoregion level, message=FALSE}
 eco_temp %>% 
   dplyr::filter(Frug_Population_Trend == "Increasing"|Frug_Population_Trend == "Decreasing") %>% 
   group_by(ecoregion, Frug_Population_Trend) %>%
   summarise(length(Frugivore_Species)) 
 ```
 
-The decreasing populations outnumber the increasing populations. 
+  As opposed to the 'high risk' and 'low risk' categories, here, those species that are increasing are few in number while many more are in the decreasing population category. 
 
 
 
@@ -1192,12 +1202,12 @@ rm(aov.biome.deg.m2, out.aov.biome.deg.m2)
 
 ```
 
-* Summary
+__Summary__
     + Frugivores belonging in the decreasing population category disperse a near- significantly greater variety of seeds than those with growing population sizes (Chisq = 3.12, p = 0.077)
 
 
 
-### Analysis 2 model validation
+### Analysis 2: model validation
 
 ```{r model validation analysis 2}
 
@@ -1215,6 +1225,7 @@ rm(sim.out.biome.deg.m2, biome.deg.m2)
 
 ```
 
+  __Summary:__ 
 When run with the frugivore degree values minus 1 (to allow for zeros in the data), our data meets the negative binomial model assumptions. 
 
 
@@ -1330,7 +1341,7 @@ rm(biome_bootstrap.DEC, biome_bootstrap.INC, biome_frug_popsubset, biome_bootstr
 
 This plot shows frugivore degree frugivores belonging to populations that are shrinking globally and those that are currently growing. Bars show 95% CIs around the mean (which is shown as black point for each group), calculated from 1000 bootstrap iterations.
 
-## Figures of frugivore degrees in high vs low extinction risk groups and decreasing vs increasing population groups for each ecoregion
+## Figures for both analysis 1 and 2 illustrating frugivore degrees in high vs low extinction risk groups and also in decreasing vs increasing population groups
 
 There is insufficient data in many of these categories at the ecoregion scale (see the data overview section of ecoregions above in Analysis 1 and Analysis 2 prep) to repeat the models that were done at the biome scale analyzing differences in degree between frugivores that belong to either higher or lower extinction risk categories (Analysis 1 above) or decreasing or increasing populations (Analysis 2 above). Although we can't run sufficiently robust analyses, we can at least gain an understanding of trends by looking at the data.
 
@@ -1472,32 +1483,32 @@ save <- ggarrange(biome_deg.risk.level.plot, biome_deg.pop.trend.plot, ecoregion
 save # look at it
 
 # save it 
-#ggsave(save, file = "degree_comparison_panel.pdf", units = "in", width = 6.75, height = 8, dpi = 400)
+#ggsave(save, file = "plots/degree_comparison_panel.pdf", units = "in", width = 6.75, height = 8, dpi = 400)
 
 # save as png to put in manuscript
-#ggsave(save, file = "degree_comparison_panel.png", units = "in", width = 6.75, height = 8, dpi = 400)
+#ggsave(save, file = "plots/degree_comparison_panel.png", units = "in", width = 6.75, height = 8, dpi = 400)
 
 
 ```
 Panel figure for manuscript. Shows general trend of decreasing population sizes and endangerment status both being associated with higher frugivore degree compared to frugivore species that are doing better int he face of anthropogenic pressures. 
 
 
-## Analysis 3
 
-Simulation of species removals. 
+## Analysis 3: Simulations of frugivore species removals
   + This consists of for loops that create:
   + (1) A random removal scenario, then scenarios in which frugivores are removed in decreasing order of (2) endangerment status, (3) degree, and (4) body mass. 
   + Each scenario is run at the biome-scale and then replicated at the ecoregion scale
   + For random removal and within each endangerment status, 1000 iterations are run and then 1000 bootstraps are run to get 95% CIs (and the code for iteration steps takes a long time to run)
 
-### Mean function used in bootstrapping
+### Load function used in bootstrapping later
 
-```{r mean function}
+```{r mean function nothing fancy}
 meanfun <- function(data, i){
   d <- data[i, ]
   return(mean(d))   
 } #function to take mean - boot package is interesting and you have to write your own function for the 'statistic' argument as far as I can tell
 ```
+ The boot package uses this for the 'statistic' argument for estimating our means for number of plants left per removal.
 
 ### Random removal
 
@@ -1505,6 +1516,7 @@ Examine co-extinctions of plant species and network robustness under 1000 simula
 
 #### Biome-scale random removal simulations and bootstrapping CIs
 
+Following two code chunks simulate random removals and bootstrap mean estimates and upper/lower 95% confidence interavals for the biome network.
 ```{r biome random removals, cache = TRUE}
 # run this on 'biome.mat' - the interaction matrix for the full biome
 # cache results bc this takes about 30 min to run
@@ -1640,8 +1652,10 @@ rm(biome_random.means.boot, biome_random.upper.cis, biome_random.lower.cis, biom
 
 #### Ecoregion-scale random removal simulations and bootstrapping CIs
 
-##### Cerrado
+The above is repeated for each ecoregion.
 
+##### Cerrado
+Following two code chunks simulate random removals and bootstrap mean estimates and upper/lower 95% confidence interavals for the cerrado network.
 ```{r cerrado random removals, cache = TRUE}
 # run this on 'mat.cerrado' - the interaction matrix for the cerrado ecoregion
 cerrado_robustness_vector_random <- rep(NA, 1000)
@@ -1765,7 +1779,7 @@ rm(cerrado_random.means.boot, cerrado_random.lower.cis, cerrado_random.upper.cis
 ```
 
 ##### Serra do Mar
-
+Following two code chunks simulate random removals and bootstrap mean estimates and upper/lower 95% confidence intervals for the Serra do Mar network.
 ```{r serra.do.mar random removals, cache = TRUE}
 # run this on 'mat.serra.do.mar' - the interaction matrix for the serra.do.mar ecoregion
 
@@ -1811,11 +1825,14 @@ for(j in 1:1000) {
   serra.do.mar_robustness_vector_random[j] <- robustness.serra.do.mar.random.ll
 }
 
+
 # extract plant survivor counts and get them into a workable form
 # copy the time survivors output in case I mess it up, since it is time consuming to make
 serra.do.mar_plant_survivors_vector_random_copy <- serra.do.mar_plant_survivors_vector_random
+
 # create an empty dataframe and put in my frugivore removal counts
 serra.do.mar_plant_survivors_random_df<-as.data.frame(seq(from = 0, to = 173))
+
 # doesn't behave unless I unlist the survivors vector
 # this loop does that and sticks the values into my dataframe with the frugivore removal counts
 for(i in 1:length(serra.do.mar_plant_survivors_vector_random_copy)) {temp_serra.do.mar_random<-unlist(serra.do.mar_plant_survivors_vector_random_copy[[i]])
@@ -1833,11 +1850,11 @@ serra.do.mar_plant_survivors_random<-as.data.frame(serra.do.mar_plant_survivors_
 
 # 'serra.do.mar_robustness_vector_random' is a vector of all the robustness values created during each removal over each iteration
 
-# 'serra.do.mar_plant_survivors_random' is a big dataframe with the number of plants surviving at each removal step, for each iteration (N=1000)
+# 'serra.do.mar_plant_survivors_random' is a big dataframe with the number of plants surviving at each removal step (columns), for each iteration (rows, N=1000)
 
 # clean
 
-rm(i, j, s1.serra.do.mar.random, triggerlist.serra.do.mar.random, new.mat.serra.do.mar.random, survivors.serra.do.mar.random.ll, serra.do.mar_plant_survivors_vector_random, robustness.serra.do.mar.random.ll, serra.do.mar_plant_survivors_vector_random_copy, serra.do.mar_plant_survivors_random_df, temp_serra.do.mar_random, serra.do.mar_plant_survivors_random_mat)
+#rm(i, j, s1.serra.do.mar.random, triggerlist.serra.do.mar.random, new.mat.serra.do.mar.random, survivors.serra.do.mar.random.ll, serra.do.mar_plant_survivors_vector_random, robustness.serra.do.mar.random.ll, serra.do.mar_plant_survivors_vector_random_copy, serra.do.mar_plant_survivors_random_df, temp_serra.do.mar_random, serra.do.mar_plant_survivors_random_mat)
 ```
 
 ```{r serra.do.mar bootstraps cis random frug, cache=TRUE}
@@ -1885,15 +1902,15 @@ serra.do.mar_random.upper.cis<-serra.do.mar_random.upper.cis %>% add_row(upper_9
 serra.do.mar_plant_survivors_random_btstrped <- cbind(serra.do.mar_random.means.boot, serra.do.mar_random.upper.cis, serra.do.mar_random.lower.cis)
 
 
-serra.do.mar_plant_survivors_random_btstrped$n_frugs_removed<-length(seq(from = 0, to = 173))
+serra.do.mar_plant_survivors_random_btstrped$n_frugs_removed<-seq(from = 0, to = 173)
 
 # clean
 
-rm(serra.do.mar_random.means.boot, serra.do.mar_random.lower.cis, serra.do.mar_random.upper.cis, serra.do.mar_plant_survivors_random, serra.do.mar.random.mean.int.95.BCa, means.serra.do.mar.random, i)
+#rm(serra.do.mar_random.means.boot, serra.do.mar_random.lower.cis, serra.do.mar_random.upper.cis, serra.do.mar_plant_survivors_random, serra.do.mar.random.mean.int.95.BCa, means.serra.do.mar.random, i)
 ```
 
 ##### Mata Caducifolia
-
+Following two code chunks simulate random removals and bootstrap mean estimates and upper/lower 95% confidence interavals for the mata caducifolia network.
 ```{r mata.caducifolia random removals, cache = TRUE}
 mata.caducifolia_robustness_vector_random <- rep(NA, 1000)
 mata.caducifolia_plant_survivors_vector_random<- list()
@@ -2028,6 +2045,8 @@ Examine co-extinctions of plant species and network robustness under a frugivore
     + multiple species exist within each of the 5 IUCN categories (CR, EN, VU, NT, LC) so this is run 1000 times to get random lots of iterations of randomly removing frugivores within each category in descending order of endangerment status
     
 #### Biome-scale endangerment-status-based removal simulations and bootstrapping CIs
+
+Following two code chunks remove species in random order within each IUCN category, moving through the categories sequentially from most to least concern. Means are bootstrapped and so are upper/lower 95% confidence intervals. This is first done at the biome scale.  
 
 ```{r biome iucn based removals, cache = TRUE}
 
@@ -2227,9 +2246,9 @@ rm(means, mean.int.95.BCa, i, biome_IUCN_lower_cis, biome_IUCN_upper_cis, biome_
 
 
 #### Ecoregion-scale endangerment-status-based removal simulations and boostrapping CIs
-
+Following code remove species in random order within each IUCN category, moving through the categories sequentially from most to least concern. This is done per ecoregion in the following sections, along with bootstrapping mean estimates and upper/lower 95% confidence intervals. 
 ##### Cerrado
-
+Cerrado ecoregion sequential elimination of endangered frugivores per IUCN category, followed by bootstrapping. 
 ```{r cerrado iucn based removals, cache=TRUE}
 cerrado_robustness_vec_IUCN <- rep(NA, 1000)
 
@@ -2358,7 +2377,7 @@ rm(means, mean.int.95.BCa, i, cerrado_IUCN_lower_cis, cerrado_IUCN_upper_cis, ce
 
 
 ##### Serra do Mar
-
+Serra do Mar ecoregion sequential elimination of endangered frugivores per IUCN category, followed by bootstrapping. 
 ```{r serra.do.mar iucn based removals, cache=TRUE}
 #I'm not sure why, but the triggerlists weren't randomizing and so I'm temporarily going back to my older code version of making EIGHT individual triggerlists then combining them after wards - very jenky but appears to fix issue
 
@@ -2559,7 +2578,7 @@ rm(means, mean.int.95.BCa, i, serra.do.mar_IUCN_lower_cis, serra.do.mar_IUCN_upp
 ```
 
 ##### Mata Caducifolia
-
+Serra do Mar ecoregion sequential elimination of endangered frugivores per IUCN category, followed by bootstrapping.
 ```{r mata caducifolia IUCN based removals, cache = TRUE}
 
 mata.caducifolia_robustness_vec_IUCN <- rep(NA, 1000)
@@ -2702,9 +2721,10 @@ rm(means, mean.int.95.BCa, i, mata.caducifolia_IUCN_lower_cis, mata.caducifolia_
     
     
 ### Removal based on greatest to lowest body mass
+Generate coextinction cascade that follows sequential removal of frugivore species from largest to smallest.
 
 #### Biome-scale body-mass-based removal simulations
-
+The following code chunk removed frugivores from largest to smallest body mass from the biome-scale network:
 ```{r biome-scale removal scenario of frugivores by descending body mass}
     biome_bodymass_triggerlist <- biome_frug_md %>% dplyr::arrange(desc(Frug_Body_Mass)) %>% dplyr::select(Frugivore_Species)
 biome_bodymass_triggerlist <- unlist(biome_bodymass_triggerlist)
@@ -2744,7 +2764,7 @@ rm(i, biome_new.mat_bodymass, biome.mat.temp, biome_bodymass_triggerlist)
 ```
 
 #### Ecoregion-scale body-mass-based removal simulations
-
+Each of the following three code chunks removes frugivores from largest to smallest body mass per ecoregion:
 ```{r cerrado body-mass-based removal simulation}
  cerrado_bodymass_triggerlist <- cerrado_frug_md %>% dplyr::arrange(desc(Frug_Body_Mass)) %>% dplyr::select(Frugivore_Species)
 cerrado_bodymass_triggerlist <- unlist(cerrado_bodymass_triggerlist)
@@ -2856,10 +2876,11 @@ mata.caducifolia_plant_survivors_bodymass$scenario<-"descending_bodymass"
 rm(i, mata.caducifolia_new.mat_bodymass, mat.mata.caducifolia.temp, mata.caducifolia_bodymass_triggerlist)
 ```
 
+
 ### Removal based on greatest to lowest degree
-
+Generate coextinction cascades that follow sequential removal of frugivores that are the most to least connected
 #### Biome-scale degree-based removal simulations
-
+The following code chunk removes most to least connecte frugivores from the biome-scale network:
 ```{r biome-scale removal scenario of frugivores by descending degree}
     biome_degree_triggerlist <- biome_frug_md %>% dplyr::arrange(desc(Frugivore_degree)) %>% dplyr::select(Frugivore_Species)
 biome_degree_triggerlist <- unlist(biome_degree_triggerlist)
@@ -2899,6 +2920,7 @@ rm(i, biome_new.mat_degree, biome.mat.temp, biome_degree_triggerlist)
 
 #### Ecoregion-scale degree-based removal simulations
 
+The following three code chunks remove the most to least conected frugivores from the ecoregion networks:
 
 ```{r cerrado degree-based removal simulation}
  cerrado_degree_triggerlist <- cerrado_frug_md %>% dplyr::arrange(desc(Frugivore_degree)) %>% dplyr::select(Frugivore_Species)
@@ -3011,12 +3033,12 @@ mata.caducifolia_plant_survivors_degree$scenario<-"descending_degree"
 rm(i, mata.caducifolia_new.mat_degree, mat.mata.caducifolia.temp, mata.caducifolia_degree_triggerlist)
 ```
 
-### Figures, Analysis 3
+### Figures for analysis 3 illustrating coextinction cascades following each removal scenario
 
 Each network (biome, plus each ecoregion) has a full version and a zoomed in version of a figure showing the plant coextinctions following the different removal scenarios. The zoomed in versions are enlargements of the graph portions that only show up until the last high risk frugivore (greater than 'least concern' category) is removed from the network.
 
-#### Join data from above scenarios
-
+#### Join data from removal scenarios for easier graphing
+The resulting coextinction data from the simulations in section 4.4 need to be collected and merged for easier graphing. 
 ```{r merge datasets for graphing starting with biome data}
 
 # BIOME:
@@ -3117,74 +3139,79 @@ mata.caducifolia_plant_survivors <- rbind(mata.caducifolia_plant_survivors_rando
 
 ecoregion_coextinctions <- rbind(cerrado_plant_survivors, serra.do.mar_plant_survivors, mata.caducifolia_plant_survivors)
 
-rm(cerrado_plant_survivors_random_btstrped, cerrado_plant_survivors_IUCN_btstrped, cerrado_plant_survivors_bodymass, cerrado_plant_survivors_degree, cerrado_plant_survivors, serra.do.mar_plant_survivors_random_btstrped, serra.do.mar_plant_survivors_IUCN_btstrped, serra.do.mar_plant_survivors_bodymass, serra.do.mar_plant_survivors_degree, serra.do.mar_plant_survivors,mata.caducifolia_plant_survivors_random_btstrped, mata.caducifolia_plant_survivors_IUCN_btstrped, mata.caducifolia_plant_survivors_bodymass, mata.caducifolia_plant_survivors_degree, mata.caducifolia_plant_survivors) 
+# clean
+
+# rm(cerrado_plant_survivors_random_btstrped, cerrado_plant_survivors_IUCN_btstrped, cerrado_plant_survivors_bodymass, cerrado_plant_survivors_degree, cerrado_plant_survivors, serra.do.mar_plant_survivors_random_btstrped, serra.do.mar_plant_survivors_IUCN_btstrped, serra.do.mar_plant_survivors_bodymass, serra.do.mar_plant_survivors_degree, serra.do.mar_plant_survivors,mata.caducifolia_plant_survivors_random_btstrped, mata.caducifolia_plant_survivors_IUCN_btstrped, mata.caducifolia_plant_survivors_bodymass, mata.caducifolia_plant_survivors_degree, mata.caducifolia_plant_survivors) 
 ```
 
-#### Biome coextinction figure
+#### Now make the figures with all the joined simluation data
+Biome-scale coextinction figure, showing (a) the full network for each removal scenario until all frugivores have been removed and (b) an enlargement of the rectangle in (a) showing the network up until all frugivores at high risk of extinction are removed, illustrating approximately a quarter of the network's tree species would be left without dispersers. This is followed by the ecoregion scale figures with corresponding enlargements of subsets of networks showing the endangered frugivore removals and predicted plant coextinctions (plots c-h).
 
-Biome-scale coextinction figure, showing (a) the full network for each removal scenario until all frugivores have been removed and (b) an enlargement of the rectangle in (a) showing the network up until all frugivores at high risk of extinction are removed, illustrating approximately a quarter of the network's tree species would be left without dispersers. 
 ```{r biome full coextinction plot}
-biome_p2 <- biome_plant_survivors %>%
+
+biome_plot1 <- biome_plant_survivors %>%
+  
   mutate(scenario = factor(scenario, levels = c("descending_degree", "descending_bodymass", "descending_endangerment", "random" ))) %>%
+  
   ggplot(aes(x = n_frugs_removed, y = n_plants_remaining, group = scenario, color = scenario, linetype = scenario)) + 
+  
   geom_line(size=0.9) +  scale_linetype_manual(values=c(3,2,1,4), labels = c("Most-to-least connected", "Descending body mass", "Descending risk of extinction", "Random")) + 
-  theme_bw() + theme(panel.grid.minor = element_blank()) + labs(y="Plants without extant dispersers", x = "# frugivore species lost") + 
-  theme(axis.text = element_text(size = 11, color = "black")) +
-  theme(axis.title = element_text(size = 11)) + 
-  scale_color_manual(values = c("chocolate3", "cyan4", "darkred", "gray"), labels = c("Most-to-least connected", "Descending body mass", "Descending risk of extinction", "Random")) + theme(legend.title = element_blank()) + theme(legend.position = "none") + labs(tag = "(a)") 
+  
+  theme_bw() + theme(panel.grid.minor = element_blank()) + 
+  
+  labs(y="# plants with extant dispersers", x = "# frugivore species lost") + 
+  
+  theme(axis.text = element_text(size = 10, color = "black")) +
+  
+  theme(axis.title = element_text(size = 10)) + 
+  
+  scale_color_manual(values = c("chocolate3", "cyan4", "darkred", "gray"), labels = c("Most-to-least connected", "Descending body mass", "Descending risk of extinction", "Random")) + 
+  
+  theme(legend.title = element_blank()) + 
+  
+  theme(legend.position = "none") +
+  
+  labs(tag = "(a)") 
 
 # annotate zoom with endangerment labels
 
-biome_p2_zoom <- biome_p2 + ylim(550,786) + xlim(0, 50) + labs(tag = "(b)") + annotate(geom = "segment", x = 5, y = 778, xend = 5, yend = 734, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 5, y =786, label = "CR", fontface = "bold") + 
-  annotate(geom = "segment", x = 15, y = 778, xend = 15, yend = 630, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 15, y =786, label = "EN", fontface = "bold") + 
-  annotate(geom = "segment", x = 25, y = 778, xend = 25, yend = 599, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 25, y =786, label = "VU", fontface = "bold") + 
-  annotate(geom = "segment", x = 44, y = 778, xend = 44, yend = 575, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 44, y =786, label = "NT", fontface = "bold")
+biome_plot1_zoom <- biome_plot1 + 
+  
+  ylim(550, 786) + xlim(0, 50) + 
+  
+  labs(tag = "(b)") + 
+  
+  annotate(geom = "segment", x = 5, y = 775, xend = 5, yend = 734, arrow = arrow(length = unit(1.2, "mm"), type = "closed")) + 
+  
+  annotate(geom = "text", x = 5, y =786, label = "CR", size = 3) +
+  
+  annotate(geom = "segment", x = 15, y = 775, xend = 15, yend = 630, arrow = arrow(length = unit(1.2, "mm"), type = "closed")) + 
+  
+  annotate(geom = "text", x = 15, y = 786, label = "EN", size = 3) + 
+  
+  annotate(geom = "segment", x = 25, y = 775, xend = 25, yend = 599, arrow = arrow(length = unit(1.2, "mm"), type = "closed")) + 
+  
+  annotate(geom = "text", x = 25, y = 786, label = "VU", size = 3) + 
+  
+  annotate(geom = "segment", x = 44, y = 775, xend = 44, yend = 575, arrow = arrow(length = unit(1.2, "mm"), type = "closed")) + 
+  
+  annotate(geom = "text", x = 44, y =786, label = "NT", size = 3) + 
+  
+  labs(title = "Enlargement of loss of at-risk frugivores") + theme(plot.title = element_text(size = 11))
+
+# biome_plot1_zoom
 
 # add rectangle of area to zoom in on (if added first, it shows up in the zoom version too)
 
-biome_p3 <- biome_p2 + theme(legend.position="none")+ geom_rect(mapping = aes (xmin = 0, xmax=50, ymin = 550, ymax=778), alpha = 0, color = "black", linetype = 1)
+biome_plot2 <- biome_plot1 + theme(legend.position="none") + 
+  geom_rect(mapping = aes (xmin = -5, xmax=50, ymin = 540, ymax=795), fill = alpha(NA, 0), linetype = 1, color = "black", size = 0.3) + labs(title = "Biome-scale network decay\nunder different frugivore loss scenarios") + theme(plot.title = element_text(size = 11))
 
-# actually, make it so that the zoomed version is a proportion of the network
-
-biome_plant_survivors$proportion_plants_remaining <- biome_plant_survivors$n_plants_remaining/777
-
-biome_plant_survivors$proportion_frugivores_removed <- biome_plant_survivors$n_frugs_removed/321
-
-# full plot to get zoom from:
-
-biome_proportions_full <- biome_plant_survivors %>%
-  mutate(scenario = factor(scenario, levels = c("descending_degree", "descending_bodymass", "descending_endangerment", "random" ))) %>%
-  ggplot(aes(x = proportion_frugivores_removed, y = proportion_plants_remaining, group = scenario, color = scenario, linetype = scenario)) + 
-  geom_line(size=0.9) +  scale_linetype_manual(values=c(3,2,1,4), labels = c("Most-to-least connected", "Descending body mass", "Descending risk of extinction", "Random")) + 
-  theme_bw() + theme(panel.grid.minor = element_blank()) + labs(y="Proportion of plants without extant dispersers", x = "Proportion frugivore species lost") + 
-  theme(axis.text = element_text(size = 11, color = "black")) +
-  theme(axis.title = element_text(size = 11)) + 
-  scale_color_manual(values = c("chocolate3", "cyan4", "darkred", "gray"), labels = c("Most-to-least connected", "Descending body mass", "Descending risk of extinction", "Random")) + theme(legend.title = element_blank()) + theme(legend.position = "none") + labs(tag = "(a)") 
-
-# zoom with proportions for axis
-
-biome_proportion_zoom <- biome_proportions_full + ylim(550/777,786/777) + xlim(0, 50/321) + labs(tag = "(b)") + annotate(geom = "segment", alpha = 0.75, x = 5/321, y = 778/777, xend = 5/321, yend = 734/777, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 5/321, y =786/777, label = "CR") + 
-  annotate(geom = "segment",  alpha = 0.75,x = 15/321, y = 778/777, xend = 15/321, yend = 630/777, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 15/321, y =786/777, label = "EN") + 
-  annotate(geom = "segment", alpha = 0.75, x = 25/321, y = 778/777, xend = 25/321, yend = 599/777, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 25/321, y =786/777, label = "VU") + 
-  annotate(geom = "segment", alpha = 0.75, x = 44/321, y = 778/777, xend = 44/321, yend = 575/777, arrow = arrow(length = unit(2, "mm"), type = "closed")) + annotate(geom = "text", x = 44/321, y =786/777, label = "NT")
-
-save <- ggarrange(biome_p3, biome_proportion_zoom, common.legend = TRUE)
-save
-
-# save it
-
-# ggsave(save, file = "Biome_coextinction_panel.pdf", units = "in", width = 6.75, height = 4, dpi = 400)
-
-# clean
-rm(save, biome_p2, biome_p3, biome_proportion_zoom, biome_proportions_full, biome_p2_zoom)
+# biome_plot2
 
 ```
+Above code chunk creates plot(s) for biome (full network plot + zoomed in area of losing only endangered frugivores). No plot displayed here - see panel at end of section.
 
-#### Ecoregion coextinction figures
-
-The same idea as above, but per ecoregion. Not that in the below code chunk, the code used to create plots for the first ecoregion is annotated with comments to explain the process. After the first ecoregion, the code process is the same for the subsequent regions and annotation is not included for them to reduce text/clutter since the comments would all be identical to the codes sections plotting the first ecoregion. 
-
-```{r ecoregion coextinction graphs}
+```{r cerrado coextinction graphs}
 
 # Cerrado full plot, raw values (not proportions, which are also plotted below)
 
@@ -3194,30 +3221,38 @@ cerrado_plot1 <- ecoregion_coextinctions %>%
                                                 "descending_endangerment", 
                                                 "random" ))) %>% # put removal type in descending order of anticipated worst-case scenarios
   
-  filter(ecoregion == "cerrado") %>% # isolate cerrado ecoregion
+  filter(ecoregion == "cerrado") %>% # isolate ecoregion
   
   ggplot(aes(x = n_frugs_removed, y = n_plants_remaining, 
              group = scenario, color = scenario, linetype = scenario)) +
-  geom_line(size=0.9) + # this line size seems best - any larger is chunky looking
+  
+  geom_line(size=0.9) + # adjust line size
+  
   scale_linetype_manual(values=c(3,2,1,4), # specify lines so EN one is solid
                         labels = c("Most-to-least connected", "Descending body mass",
                                    "Descending risk of extinction", "Random")) +
   
-    theme_bw() + theme(panel.grid.minor = element_blank()) + # specify a simple theme
+  # specify simple theme without legend or legend title (will add legend w/ggarrange in a later chunk)
+  theme_bw() + theme(panel.grid.minor = element_blank()) + 
   
-  labs(y="Plants without extant dispersers", x = "# frugivore species lost") + #name axes
+  theme(legend.title = element_blank()) +
   
-  theme(axis.text = element_text(size = 11, color = "black")) +
-  theme(axis.title = element_text(size = 11)) + # enlarge axis numbers and text
+    theme(legend.position = "none") +
+  
+  labs(y="# plants with extant dispersers", x = "# frugivore species lost") + # name axes
+  
+  theme(axis.text = element_text(size = 10, color = "black")) +
+  
+  theme(axis.title = element_text(size = 10)) + # enlarge axis numbers and text
   
   scale_color_manual(values = c("chocolate3", "cyan4", "darkred", "gray"), labels = c("Most-to-least connected", "Descending body mass", "Descending risk of extinction", "Random")) + # manually add colors I want - try to make it color blind friendly and allow endangerment status line to stand out
   
-  theme(legend.position = "none") + # remove legend (add w/'ggarrange' in panel later)
+  labs(tag = "(c)") + labs(title = "Ecoregion-scale: cerrado") + 
   
-  labs(tag = "(a)") #in prep for panel figures, add tage (will label each ecoregion with tag "(a)" through "(f)")
+  theme(plot.title = element_text(size = 11)) 
 
 
-cerrado_plot1 # how does it look?
+# cerrado_plot1
 
 # -- # 
 # Next step: make enlarged section of above plot
@@ -3226,201 +3261,846 @@ cerrado_plot1 # how does it look?
 # Now create enlargement of portion of above plot up to point at which all endangered frugivores have been removed
 # Annotate the zoomed in version with endangerment labels
 
-# cerrado_plot1_zoom <- cerrado_plot1 + 
+cerrado_plot1_zoom <- cerrado_plot1 + ylim(35,57) + xlim(0, 5) + 
 
-#  ylim(35,57) + # y max overshoots the number of plants in the network so I can fit label on top of arrow below
+labs(tag = "(d)") + theme(legend.title = element_blank()) +
+  
+  annotate(geom = "segment", x = 1, y = 56, xend = 1, yend = 52, 
+          arrow = arrow(length = unit(1.2, "mm"), type = "closed")) + 
+  
+  annotate(geom = "text", x = 1, y =57, label = "CR", size = 3) + 
+  
+  annotate(geom = "segment", x = 2, y = 56, xend = 2, yend = 38, 
+          arrow = arrow(length = unit(1.2, "mm"), type = "closed")) +
+  
+  annotate(geom = "text", x = 2, y =57, label = "EN", size = 3) + # no NT in cerrado
+  
+  annotate(geom = "segment", x = 3, y = 56, xend = 3, yend = 38, 
+          arrow = arrow(length = unit(1.2, "mm"), type = "closed")) + 
 
-#  xlim(0, 5) + # ends a few points after all at-risk frugivores have been removed to allow for better visual context of overall network in the enlarged plot
+ annotate(geom = "text", x = 3, y =57, label = "VU", size = 3) + 
+  
+  labs(title = "Enlargement") + theme(plot.title = element_text(size = 11))
 
-#  labs(tag = "(b)") + # tag for panel, will go next to full cerrado plot ('a')
+# cerrado_plot1_zoom
 
-#  annotate(geom = "segment", x = 3, y = 56, xend = 3, yend = 38, 
-#           arrow = arrow(length = unit(2, "mm"), type = "closed")) + # 'segment' becomes the arrow pointing to the spot on the endangerment removal scenario line beyond which all frugivores at greater risk than 'least concern' are removed. The values input here are deduced by looking at the plot and looking at the supplementary data to see how many at-risk frugivores exist in this ecoregion's network (that is the x value) and how many plants are left at that point (that is the 'yend' value)
-
-#  annotate(geom = "text", x = 3, y =57, label = "All CR/EN/VU/NT species lost") # label the arrow - decide on the y value based on what looks good and doesn't interfere with visibility of other lines in the plot
-
-# The above plot is commented out because I prefer the version created below that uses proportions as the axes to illustrate overall network impact more clearly
-
-# -- # next step: add rectanlge over area that gets enlarged
-
-# Add a rectangle drawn over the area to be enlarged in the zoom plot version. This has to be done as a separate plot because if the rectangle is added first and then I use that to make the zoomed in version, the rectangle then also shows up in the enlargement and looks bad 
+# -- # next step: add rectangle over area that gets enlarged
 
 cerrado_plot2 <- cerrado_plot1 + 
-  theme(legend.position="none") + # no legend needed yet
-  geom_rect(mapping = aes (xmin = 0, xmax=5, ymin = 36, ymax=56), 
-            alpha = 0, color = "black", linetype = 1) # specify borders, color, and fill (transparent, alpha = 0), and linetype of rectangle
+  
+  theme(legend.position="none") + theme(legend.title = element_blank()) + # no legend needed yet
+  geom_rect(mapping = aes (xmin = -1, xmax=6, ymin = 34, ymax=57), fill = alpha(NA, 0), linetype = 1, color = "black", size = 0.3) + 
+  labs(title = "Ecoregion-scale: cerrado") +
+  theme(plot.title = element_text(size = 11)) # specify borders, color, and fill (transparent, alpha = 0), and linetype of rectangle
 
-cerrado_plot2 # how does it look?
+# cerrado_plot2 
 
-# Use 'cerrado_plot2' when making the panel with all ecoregion figures
+```
 
-# -- #
-# Next step: make a plot with proportions instead of raw values
-# -- #
+Above code chunk creates plot(s) for cerrado (full network plot + zoomed in area of losing only endangered frugivores). No plot displayed here - see panel at end of section.
 
-# Create plots using PROPORTIONS as axes
+```{r mata caducifolia ecoregion coextinction graphs}
 
-cer_prop <- ecoregion_coextinctions %>%
-  filter (ecoregion == "cerrado")
+# Repeat with mata caducifolia
+# See cerrado code chunk for annotations on graphing
 
-cer_prop$proportion_plants_remaining <- cer_prop$n_plants_remaining/nrow(mat.cerrado) # create column with proportion values (total plants in cerrado network = nrows of interaction matrix, so just divide by that)
-
-cer_prop$proportion_frugs_removed <- cer_prop$n_frugs_removed/ncol(mat.cerrado) # repeat this process for frugivore proportions
-
-# Create the full plot version with proportions for axes to get the zoom plot from
-
-cerrado_proportions_full_plot <- cer_prop %>%
+mata.caducifolia_plot1 <- ecoregion_coextinctions %>%
   
   mutate(scenario = factor(scenario, levels = c("descending_degree",
                                                 "descending_bodymass",
                                                 "descending_endangerment", 
-                                                "random" ))) %>% # order the scenarios
+                                                "random" ))) %>% 
   
-  ggplot(aes(x = proportion_frugs_removed, y = proportion_plants_remaining, 
-             group = scenario, color = scenario, linetype = scenario)) + 
-  geom_line(size=0.9) + # specify line size
-  scale_linetype_manual(values=c(3,2,1,4), labels = c("Most-to-least connected", 
-                                                      "Descending body mass",
-                                                      "Descending risk of extinction",
-                                                      "Random")) + # specify line types
+  filter(ecoregion == "mata.caducifolia") %>% 
   
-  theme_bw() + theme(panel.grid.minor = element_blank()) + # make theme match above
+  ggplot(aes(x = n_frugs_removed, y = n_plants_remaining, 
+             group = scenario, color = scenario, linetype = scenario)) +
   
-  labs(y="Proportion of plants without extant dispersers", 
-       x = "Proportion frugivore species lost") + # be sure to adjust labels as props
+  geom_line(size=0.9) + 
   
-  theme(axis.text = element_text(size = 11, color = "black")) +
-  theme(axis.title = element_text(size = 11)) + # keep text the same size on axes
+  scale_linetype_manual(values=c(3,2,1,4), 
+                        labels = c("Most-to-least connected", "Descending body mass",
+                                   "Descending risk of extinction", "Random")) + 
   
-  scale_color_manual(values = c("chocolate3", "cyan4", "darkred", "gray"),
-                     labels = c("Most-to-least connected", 
-                                "Descending body mass",
-                                "Descending risk of extinction", 
-                                "Random")) + #specify colors
+  theme_bw() + theme(panel.grid.minor = element_blank()) + 
   
-  theme(legend.position = "none") + # no legend (add later to panel)
-  labs(title="Cerrado") # add plot title 
-
-cerrado_proportions_full_plot # how does it look?
-
-# -- #
-# Next step: make englargement version but w/proportions for axes
-# -- #
-
-# Now make the zoom plot with proportions for axes
-
-cerrado_proportion_zoom <- cerrado_proportions_full_plot + 
-ylim(35/nrow(mat.cerrado), 57/nrow(mat.cerrado)) + 
-  xlim(0, 5/ncol(mat.cerrado)) +#specify region of plot above I want a zoom of, adjust the original version of zoomed plot above to make values proportions
+  theme(legend.title = element_blank())+
   
- labs(tag = "(b)") + # tag b
+  labs(y="# plants with extant dispersers", x = "# frugivore species lost") + 
   
- annotate(geom = "segment", x = 3/ncol(mat.cerrado), 
-          y = 56/nrow(mat.cerrado), 
-          xend = 3/ncol(mat.cerrado), 
-          yend = 38/nrow(mat.cerrado), 
-         arrow = arrow(length = unit(2, "mm"), type = "closed")) + # where arrow should go to point to spot on endangerment removal scenario line beyond which all frugivores greater than least concern by IUCN status are gone  
+  theme(axis.text = element_text(size = 10, color = "black")) +
   
-annotate(geom = "text", x = 3/ncol(mat.cerrado), 
-         y =57/nrow(mat.cerrado), label = "All CR/EN/VU/NT species lost") # label the arrow
-
-cerrado_proportion_zoom # how does it look?
-
-# Ultimately, I think I like the proportion versions for both the full view and the zoom view plots
-
-# END CERRADO
-
-# -- #
-# NEXT ECOREGION
-# -- #
-
-# Serra do Mar
-
-# Make columns with proportion values to use
-
-serra_prop <- ecoregion_coextinctions %>%
-  filter (ecoregion == "serra.do.mar")
-
-serra_prop$proportion_plants_remaining <- serra_prop$n_plants_remaining/nrow(mat.serra.do.mar) 
-
-serra_prop$proportion_frugs_removed <- serra_prop$n_frugs_removed/ncol(mat.serra.do.mar)
-
-# Create the full plot version with proportions for axes to get the zoom plot from
-
-serra.do.mar_proportions_full_plot <- serra_prop %>%
+  theme(axis.title = element_text(size = 10)) + 
   
-  mutate(scenario = factor(scenario, 
-                           levels = c("descending_degree",
-                                                "descending_bodymass",
-                                                "descending_endangerment", 
-                                                "random" ))) %>%
+  scale_color_manual(values = c("chocolate3", "cyan4", "darkred", "gray"), labels = c("Most-to-least connected", "Descending body mass", "Descending risk of extinction", "Random")) + 
   
-  ggplot(aes(x = proportion_frugs_removed, 
-             y = proportion_plants_remaining, 
-             group = scenario, 
-             color = scenario, 
-             linetype = scenario)) + 
-  geom_line(size=0.9) +
-  scale_linetype_manual(values=c(3,2,1,4),
-                        labels = c("Most-to-least connected", 
-                                                      "Descending body mass",
-                                                      "Descending risk of extinction",
-                                                      "Random")) +
-  theme_bw() + theme(panel.grid.minor = element_blank()) +
-  labs(y="Proportion of plants without extant dispersers", 
-       x = "Proportion frugivore species lost") +  
-  theme(axis.text = element_text(size = 11, color = "black")) +
-  theme(axis.title = element_text(size = 11)) + 
-  scale_color_manual(values = c("chocolate3", "cyan4", "darkred", "gray"),
-                     labels = c("Most-to-least connected", "Descending body mass",
-                                "Descending risk of extinction", "Random")) + 
-  theme(legend.position = "none") +
-  labs(title="Serra do Mar")
+  theme(legend.position = "none") + 
+  
+  labs(tag = "(e)") +
+  
+  labs(title = "Ecoregion-scale: mata caducifolia") + theme(plot.title = element_text(size = 11))
 
-serra.do.mar_proportions_full_plot # how does it look?
+
+# mata.caducifolia_plot1 
+
 
 # -- # 
 # Next step: add rectangle over area that gets enlarged
 # -- #
 
-serra.do.mar_proportions_full_plot_rectangle <- serra.do.mar_proportions_full_plot + 
-  theme(legend.position="none") +
-  geom_rect(mapping = aes (xmin = 0, xmax= 15/ncol(mat.serra.do.mar), ymin = 170/nrow(mat.serra.do.mar), ymax=246/nrow(mat.serra.do.mar)), 
-            alpha = 0, color = "black", linetype = 1) + labs(tag="c")
 
-serra.do.mar_proportions_full_plot_rectangle # how does it look?
+mata.caducifolia_plot2 <- mata.caducifolia_plot1 + 
+  theme(legend.position="none") +
+  geom_rect(mapping = aes (xmin = -1, xmax= 7.5, ymin = 102, ymax=133),
+            fill = alpha(NA, 0), linetype = 1, color = "black", size = 0.3) + 
+  labs(tag="(e)") 
+
+
+# mata.caducifolia_plot2 
 
 
 # -- #
 # Next step: enlarge it and annotate it
 # -- #
 
-serra.do.mar_proportion_zoom <- serra.do.mar_proportions_full_plot + 
-ylim(120/nrow(mat.serra.do.mar), 1.05) + xlim(0, 18/ncol(mat.serra.do.mar)) +
- labs(tag = "(d)") +
- annotate(geom = "segment", x = 13/ncol(mat.serra.do.mar), y = 246/nrow(mat.serra.do.mar), 
-          xend = 13/ncol(mat.serra.do.mar), yend = 171/nrow(mat.serra.do.mar), 
-         arrow = arrow(length = unit(2, "mm"), type = "closed")) +  
-annotate(geom = "text", x = 13/ncol(mat.serra.do.mar), y =1.05, label = "All CR/EN/VU/NT species lost")
+mata.caducifolia_plot1_zoom <- mata.caducifolia_plot1 + 
+  
+ylim(106, 131) + xlim(0, 7) +
+  
+ labs(tag = "(f)") +
+  
+ annotate(geom = "segment", x = 1, y = 130, 
+          xend = 1, yend = 114, 
+         arrow = arrow(length = unit(1.2, "mm"), type = "closed")) +  
+  
+  annotate(geom = "text", x = 1, y = 131, label = "CR", size = 3) + 
+  
+  annotate(geom = "segment", x = 3, y = 130, 
+          xend = 3, yend = 110, 
+         arrow = arrow(length = unit(1.2, "mm"), type = "closed")) + 
+  
+  annotate(geom = "text", x = 3, y = 131, label = "EN", size = 3) + 
+  
+  annotate(geom = "segment", x = 4, y = 130, 
+          xend = 4, yend = 109, 
+         arrow = arrow(length = unit(1.2, "mm"), type = "closed")) +  
+  
+  annotate(geom = "text", x = 4, y = 131, label = "VU", size = 3) + 
+  
+  annotate(geom = "segment", x = 5, y = 130, 
+          xend = 5, yend = 109, 
+         arrow = arrow(length = unit(1.2, "mm"), type = "closed")) +
+  
+  annotate(geom = "text", x = 5, y = 131, label = "NT", size = 3) + 
+  
+  labs(title = "Enlargement") + theme(plot.title = element_text(size = 11))
+  
 
-serra.do.mar_proportion_zoom # how does it look?
-
-
-
-
-#save <- ggarrange(biome_p3, biome_proportion_zoom, common.legend = TRUE)
-#save
-
+# mata.caducifolia_plot1_zoom 
 
 ```
 
+Above code chunk creates plot(s) for mata caducifolia (full network plot + zoomed in area of losing only endangered frugivores). No plot displayed here - see panel at end of section.
+
+```{r serra do mar ecoregion coextinction graphs}
+
+# Serra do Mar full plot
+# For code annotations, see cerrado coextinction graph chunk above
+
+serra.do.mar_plot1 <- ecoregion_coextinctions %>%
+  
+  mutate(scenario = factor(scenario, levels = c("descending_degree",
+                                                "descending_bodymass",
+                                                "descending_endangerment", 
+                                                "random" ))) %>% 
+  filter(ecoregion == "serra.do.mar") %>% 
+  
+  ggplot(aes(x = n_frugs_removed, y = n_plants_remaining, 
+             group = scenario, color = scenario, linetype = scenario)) +
+  
+  geom_line(size=0.9) + 
+  
+  scale_linetype_manual(values=c(3,2,1,4), 
+                        labels = c("Most-to-least connected", "Descending body mass",
+                                   "Descending risk of extinction", "Random")) +
+  theme_bw() + theme(panel.grid.minor = element_blank()) + 
+  
+  theme(legend.title = element_blank()) +
+  
+  labs(y="# plants with extant dispersers", x = "# frugivore species lost") + 
+  
+  theme(axis.text = element_text(size = 10, color = "black")) +
+  
+  theme(axis.title = element_text(size = 10)) +
+  
+  scale_color_manual(values = c("chocolate3", "cyan4", "darkred", "gray"), labels = c("Most-to-least connected", "Descending body mass", "Descending risk of extinction", "Random")) +
+  
+  theme(legend.position = "none") + 
+  
+  labs(tag = "(g)")
+
+
+# serra.do.mar_plot1 
+
+
+# -- # 
+# Next step: add rectangle over area that gets enlarged
+# -- #
+
+
+serra.do.mar_plot2 <- serra.do.mar_plot1 + 
+  
+  theme(legend.position="none") +
+  
+  geom_rect(mapping = aes (xmin = -2, xmax= 16, ymin = 160, ymax=255), 
+            fill = alpha(NA, 0), linetype = 1, color = "black", size = 0.3) + 
+  
+  labs(tag="(g)") + 
+  
+  labs(title = "Ecoregion-scale: Serra do Mar") + theme(plot.title = element_text(size = 11))
+
+
+# serra.do.mar_plot2 
+
+
+# -- #
+# Next step: enlarge it and annotate it
+# -- #
+
+serra.do.mar_plot1_zoom <- serra.do.mar_plot1 + 
+  
+ylim(120, 256) + xlim(0, 18) +
+  
+ labs(tag = "(h)") +
+  
+ annotate(geom = "segment", x = 1, y = 251, 
+          xend = 1, yend = 245, 
+         arrow = arrow(length = unit(1.2, "mm"), type = "closed")) +  
+  
+  annotate(geom = "text", x = 1, y = 256, label = "CR", size = 3) + 
+  
+  annotate(geom = "segment", x = 3, y = 251, 
+          xend = 3, yend = 187, 
+         arrow = arrow(length = unit(1.2, "mm"), type = "closed")) + 
+  
+  annotate(geom = "text", x = 3, y = 256, label = "EN", size = 3) + 
+  
+  annotate(geom = "segment", x = 7, y = 251, 
+          xend = 7, yend = 172, 
+         arrow = arrow(length = unit(1.2, "mm"), type = "closed")) +  
+  
+  annotate(geom = "text", x = 7, y = 256, label = "VU", size = 3) + 
+  
+  annotate(geom = "segment", x = 13, y = 251, 
+          xend = 13, yend = 171, 
+         arrow = arrow(length = unit(1.2, "mm"), type = "closed")) +
+  
+  annotate(geom = "text", x = 13, y = 256, label = "NT", size = 3) + 
+  
+  labs(title = "Enlargement") + theme(plot.title = element_text(size = 11))
+  
+
+# serra.do.mar_plot1_zoom
+
 ```
 
-# Session Info
+Above code chunk creates plot(s) for Serra do Mar (full network plot + zoomed in area of losing only endangered frugivores). No plot displayed here - see panel at end of section.
 
-This is key (though minimally) for reproducibility---replicate the code chunk below exactly
+```{r make ecoregion coextinction panel figure and save, fig.height = 12, warning=FALSE}
+
+coextinction_panel <- ggarrange(biome_plot2, biome_plot1_zoom, cerrado_plot2, cerrado_plot1_zoom, mata.caducifolia_plot2, mata.caducifolia_plot1_zoom, serra.do.mar_plot2, serra.do.mar_plot1_zoom, ncol = 2, nrow = 4, common.legend = TRUE)
+
+coextinction_panel
+
+#ggsave(coextinction_panel, file = "plots/coextinctions_panel.pdf", units = "in", width = 8.5, height = 11, dpi = 400)
+
+#ggsave(coextinction_panel, file = "plots/coextinctions_panel.png", units = "in", width = 8.5, height = 11, dpi = 400)
+
+```
+
+## Analysis 4: Investigate what might drive steep coextinction cascade following endangered frugivore removals - are specialist trees relying on endangered frugivores?
+
+### Analysis 4: Data overview - examine plant data, what proportion of trees w/degrees of only 1-5 (specialists) rely on endangered frugivores?
+
+
+```{r histograms to look at plant degree distributions, message=FALSE, warning=FALSE}
+
+biome_plant_hist <- ggplot(data = biome_plant_md, aes(x = Plant_degree)) +
+  geom_histogram(color = "black", fill = "darkgreen", bins = 60) + 
+  theme_classic() + labs(y="Count", x = "Degree") +
+  ggtitle("Biome-scale plant degree distribution") 
+
+serra.do.mar_plant_hist <- ggplot(data = serra.do.mar_plant_md, aes(x = Plant_degree)) +
+  geom_histogram(color = "black", fill = "lightblue") + 
+  theme_classic() + labs(y="Count", x = "Degree") + 
+  ggtitle("Serra do Mar plant degree \ndistribution") 
+
+
+cerrado_plant_hist<-ggplot(data = cerrado_plant_md, aes(x = Plant_degree)) +
+  geom_histogram(color = "black", fill = "tan") + 
+  theme_classic() + labs(y="Count", x = "Degree") + 
+  ggtitle("Cerrado plant degree distribution") 
+
+
+mata.caducifolia_plant_hist<-ggplot(data = mata.caducifolia_plant_md, aes(x = Plant_degree)) +
+  geom_histogram(color = "black", fill = "violet") + 
+  theme_classic() + labs(y="Count", x = "Degree") + 
+  ggtitle("Mata caducifolia plant degree \ndistribution")
+
+ggarrange(biome_plant_hist, serra.do.mar_plant_hist, cerrado_plant_hist, mata.caducifolia_plant_hist)
+
+```
+
+  All have right skew, with a few super generalist trees but many with less than 10 or 20 frugivore partners. 
+
+### Table for analysis 4: proportions of specialist trees relying on endangered frugivores
+To get an idea for what might be driving the trend seen in the coextinction simulations, we want to know what trees are relying on the higher risk frugivores as disperser partners in this network. 
+```{r numbers of specialist trees and how many rely on endangered frugs}
+
+#----#----#
+# Biome
+#----#----#
+
+######
+## Plant degree = 1
+#####
+
+# How many specialist trees are dispersed by only 1 frugivore in the biome?
+
+biome_plants_1 <- biome_interaction_md %>%
+  filter(Plant_degree == 1, .keep_all = TRUE)
+
+# How many of those are dispersed only by endangered frugivores?
+
+# Knock out the species of low endangerment risk
+
+biome_plants_1_noLC <- biome_plants_1 %>%
+  filter(Frug_IUCN != "LC") 
+
+# Store the counts
+
+biome_plants_1 <- length(unique(biome_plants_1$Plant_Species))
+
+biome_plants_1_noLC <- length(unique(biome_plants_1_noLC$Plant_Species))
+
+######
+## Plant degree = 2
+#####
+
+# How many specialist trees are dispersed by only 2 frugivore in the biome?
+
+biome_plants_2 <- biome_interaction_md %>%
+  filter(Plant_degree == 2, .keep_all = TRUE)
+
+# How many of those are dispersed only by endangered frugivores?
+
+# Knock out the species of low endangerment risk
+
+biome_plants_2_noLC <- biome_plants_2 %>%
+  filter(Frug_IUCN != "LC") 
+
+# Store the counts
+
+biome_plants_2_noLC <- length(unique(biome_plants_2_noLC$Plant_Species))
+
+biome_plants_2 <- length(unique(biome_plants_2$Plant_Species))
+
+######
+## Plant degree = 3
+#####
+
+# How many specialist trees are dispersed by only 3 frugivore in the biome?
+
+biome_plants_3 <- biome_interaction_md %>%
+  filter(Plant_degree == 3, .keep_all = TRUE)
+
+# How many of those are dispersed only by endangered frugivores?
+
+# Knock out the species of low endangerment risk
+
+biome_plants_3_noLC <- biome_plants_3 %>%
+  filter(Frug_IUCN != "LC") 
+
+# Store the counts
+
+biome_plants_3_noLC <- length(unique(biome_plants_3_noLC$Plant_Species))
+
+biome_plants_3 <- length(unique(biome_plants_3$Plant_Species))
+
+######
+## Plant degree = 4
+#####
+
+# How many specialist trees are dispersed by only 4 frugivore in the biome?
+
+biome_plants_4 <- biome_interaction_md %>%
+  filter(Plant_degree == 4, .keep_all = TRUE)
+
+# How many of those are dispersed only by endangered frugivores?
+
+# Knock out the species of low endangerment risk
+
+biome_plants_4_noLC <- biome_plants_4 %>%
+  filter(Frug_IUCN != "LC") 
+
+# Store the counts
+
+biome_plants_4_noLC <- length(unique(biome_plants_4_noLC$Plant_Species))
+
+biome_plants_4 <- length(unique(biome_plants_4$Plant_Species))
+
+######
+## Plant degree = 5
+#####
+
+# How many specialist trees are dispersed by only 5 frugivore in the biome?
+
+biome_plants_5 <- biome_interaction_md %>%
+  filter(Plant_degree == 5, .keep_all = TRUE)
+
+# How many of those are dispersed only by endangered frugivores?
+
+# Knock out the species of low endangerment risk
+
+biome_plants_5_noLC <- biome_plants_5 %>%
+  filter(Frug_IUCN != "LC") 
+
+# Store the counts
+
+biome_plants_5_noLC <- length(unique(biome_plants_5_noLC$Plant_Species))
+
+biome_plants_5 <- length(unique(biome_plants_5$Plant_Species))
+
+
+
+#-----#----#-----#----#
+# Repeat for Serra do Mar
+#-----#----#-----#----#
+
+######
+## Plant degree = 1
+#####
+
+# How many specialist trees are dispersed by only 1 frugivore in the Serra do Mar network?
+
+serra.do.mar_plants_1 <- interaction_md.SM %>%
+  filter(Plant_degree == 1, .keep_all = TRUE)
+
+# How many of those are dispersed only by endangered frugivores?
+
+# Knock out the species of low endangerment risk
+
+serra.do.mar_plants_1_noLC <- serra.do.mar_plants_1 %>%
+  filter(Frug_IUCN != "LC") 
+
+# Store counts
+
+serra.do.mar_plants_1_noLC <- length(unique(serra.do.mar_plants_1_noLC$Plant_Species))
+
+serra.do.mar_plants_1 <- length(unique(serra.do.mar_plants_1$Plant_Species))
+
+######
+## Plant degree = 2
+#####
+
+# How many specialist trees are dispersed by only 2 frugivore in the Serra do Mar network?
+
+serra.do.mar_plants_2 <- interaction_md.SM %>%
+  filter(Plant_degree == 2, .keep_all = TRUE)
+
+# How many of those are dispersed only by endangered frugivores?
+
+# Knock out the species of low endangerment risk
+
+serra.do.mar_plants_2_noLC <- serra.do.mar_plants_2 %>%
+  filter(Frug_IUCN != "LC") 
+
+# Store counts
+
+serra.do.mar_plants_2_noLC <- length(unique(serra.do.mar_plants_2_noLC$Plant_Species))
+
+serra.do.mar_plants_2 <- length(unique(serra.do.mar_plants_2$Plant_Species))
+
+######
+## Plant degree = 3
+#####
+
+# How many specialist trees are dispersed by only 3 frugivore in the Serra do Mar network?
+
+serra.do.mar_plants_3 <- interaction_md.SM %>%
+  filter(Plant_degree == 3, .keep_all = TRUE)
+
+
+# How many of those are dispersed only by endangered frugivores?
+
+# Knock out the species of low endangerment risk
+
+serra.do.mar_plants_3_noLC <- serra.do.mar_plants_3 %>%
+  filter(Frug_IUCN != "LC") 
+
+# Store counts
+
+serra.do.mar_plants_3_noLC <- length(unique(serra.do.mar_plants_3_noLC$Plant_Species))
+
+serra.do.mar_plants_3 <- length(unique(serra.do.mar_plants_3$Plant_Species))
+
+
+######
+## Plant degree = 4
+#####
+
+# How many specialist trees are dispersed by only 4 frugivore in the Serra do Mar network?
+
+serra.do.mar_plants_4 <- interaction_md.SM %>%
+  filter(Plant_degree == 4, .keep_all = TRUE)
+
+# How many of those are dispersed only by endangered frugivores?
+
+# Knock out the species of low endangerment risk
+
+serra.do.mar_plants_4_noLC <- serra.do.mar_plants_4 %>%
+  filter(Frug_IUCN != "LC") 
+
+# Store counts
+
+serra.do.mar_plants_4_noLC <- length(unique(serra.do.mar_plants_4_noLC$Plant_Species))
+
+serra.do.mar_plants_4 <- length(unique(serra.do.mar_plants_4$Plant_Species))
+
+######
+## Plant degree = 5
+#####
+
+# How many specialist trees are dispersed by only 5 frugivore in the Serra do Mar network?
+
+serra.do.mar_plants_5 <- interaction_md.SM %>%
+  filter(Plant_degree == 5, .keep_all = TRUE)
+
+# How many of those are dispersed only by endangered frugivores?
+
+# Knock out the species of low endangerment risk
+
+serra.do.mar_plants_5_noLC <- serra.do.mar_plants_5 %>%
+  filter(Frug_IUCN != "LC") 
+
+# Store counts
+
+serra.do.mar_plants_5_noLC <- length(unique(serra.do.mar_plants_5_noLC$Plant_Species))
+
+serra.do.mar_plants_5 <- length(unique(serra.do.mar_plants_5$Plant_Species))
+
+
+
+#-----#-----#-----#
+# Repeat for cerrado 
+#-----#-----#-----#
+
+# How many specialist trees are dispersed by only 1 frugivore in the cerrado?
+
+cerrado_plants_1 <- interaction_md.CR %>%
+  filter(Plant_degree == 1, .keep_all = TRUE)
+
+# how many of those are dispersed only by endangered frugivores?
+
+# knock out the species of low endangerment risk
+
+cerrado_plants_1_noLC <- cerrado_plants_1 %>%
+  filter(Frug_IUCN != "LC") 
+
+# store the counts
+
+cerrado_plants_1_noLC <- length(unique(cerrado_plants_1_noLC$Plant_Species))
+
+cerrado_plants_1 <- length(unique(cerrado_plants_1$Plant_Species))
+
+######
+## Plant degree = 2
+#####
+
+# How many specialist trees are dispersed by only 2 frugivore in the cerrado?
+
+cerrado_plants_2 <- interaction_md.CR %>%
+  filter(Plant_degree == 2, .keep_all = TRUE)
+
+# how many of those are dispersed only by endangered frugivores?
+
+# knock out the species of low endangerment risk
+
+cerrado_plants_2_noLC <- cerrado_plants_2 %>%
+  filter(Frug_IUCN != "LC") 
+
+# store the counts
+
+cerrado_plants_2_noLC <- length(unique(cerrado_plants_2_noLC$Plant_Species))
+
+cerrado_plants_2 <- length(unique(cerrado_plants_2$Plant_Species))
+
+######
+## Plant degree = 3
+#####
+
+# How many specialist trees are dispersed by only 3 frugivore in the cerrado?
+
+cerrado_plants_3 <- interaction_md.CR %>%
+  filter(Plant_degree == 3, .keep_all = TRUE)
+
+# how many of those are dispersed only by endangered frugivores?
+
+# knock out the species of low endangerment risk
+
+cerrado_plants_3_noLC <- cerrado_plants_3 %>%
+  filter(Frug_IUCN != "LC") 
+
+# store the counts
+
+cerrado_plants_3_noLC <- length(unique(cerrado_plants_3_noLC$Plant_Species))
+
+cerrado_plants_3 <- length(unique(cerrado_plants_3$Plant_Species))
+
+######
+## Plant degree = 4
+#####
+
+# How many specialist trees are dispersed by only 4 frugivore in the cerrado?
+
+cerrado_plants_4 <- interaction_md.CR %>%
+  filter(Plant_degree == 4, .keep_all = TRUE)
+
+# how many of those are dispersed only by endangered frugivores?
+
+# knock out the species of low endangerment risk
+
+cerrado_plants_4_noLC <- cerrado_plants_4 %>%
+  filter(Frug_IUCN != "LC") 
+
+# store the counts
+
+cerrado_plants_4_noLC <- length(unique(cerrado_plants_4_noLC$Plant_Species))
+
+cerrado_plants_4 <- length(unique(cerrado_plants_4$Plant_Species))
+
+######
+## Plant degree = 5
+#####
+
+# How many specialist trees are dispersed by only 5 frugivore in the cerrado?
+
+cerrado_plants_5 <- interaction_md.CR %>%
+  filter(Plant_degree == 5, .keep_all = TRUE)
+
+# how many of those are dispersed only by endangered frugivores?
+
+# knock out the species of low endangerment risk
+
+cerrado_plants_5_noLC <- cerrado_plants_5 %>%
+  filter(Frug_IUCN != "LC") 
+
+# store the counts
+
+cerrado_plants_5_noLC <- length(unique(cerrado_plants_5_noLC$Plant_Species))
+
+cerrado_plants_5 <- length(unique(cerrado_plants_5$Plant_Species))
+
+
+
+#-----#-----#-----#-----#-----#
+# Repeat for mata caducifolia 
+#-----#-----#-----#-----#-----#
+
+# How many specialist trees are dispersed by only 1 frugivore in the mata.caducifolia?
+
+mata.caducifolia_plants_1 <- interaction_md.MC %>%
+  filter(Plant_degree == 1, .keep_all = TRUE)
+
+# how many of those are dispersed only by endangered frugivores?
+# knock out the species of low endangerment risk
+
+mata.caducifolia_plants_1_noLC <- mata.caducifolia_plants_1 %>%
+  filter(Frug_IUCN != "LC") 
+
+# save the counts
+
+mata.caducifolia_plants_1_noLC <- length(unique(mata.caducifolia_plants_1_noLC$Plant_Species))
+mata.caducifolia_plants_1 <- length(unique(mata.caducifolia_plants_1$Plant_Species))
+
+######
+## Plant degree = 2
+#####
+
+# How many specialist trees are dispersed by only 2 frugivore in the mata.caducifolia?
+
+mata.caducifolia_plants_2 <- interaction_md.MC %>%
+  filter(Plant_degree == 2, .keep_all = TRUE)
+
+# how many of those are dispersed only by endangered frugivores?
+# knock out the species of low endangerment risk
+
+mata.caducifolia_plants_2_noLC <- mata.caducifolia_plants_2 %>%
+  filter(Frug_IUCN != "LC") 
+
+# save the counts
+
+mata.caducifolia_plants_2_noLC <- length(unique(mata.caducifolia_plants_2_noLC$Plant_Species))
+mata.caducifolia_plants_2 <- length(unique(mata.caducifolia_plants_2$Plant_Species))
+
+######
+## Plant degree = 3
+#####
+# How many specialist trees are dispersed by only 3 frugivore in the mata.caducifolia?
+
+mata.caducifolia_plants_3 <- interaction_md.MC %>%
+  filter(Plant_degree == 3, .keep_all = TRUE)
+
+# how many of those are dispersed only by endangered frugivores?
+# knock out the species of low endangerment risk
+
+mata.caducifolia_plants_3_noLC <- mata.caducifolia_plants_3 %>%
+  filter(Frug_IUCN != "LC") 
+
+# save the counts
+
+mata.caducifolia_plants_3_noLC <- length(unique(mata.caducifolia_plants_3_noLC$Plant_Species))
+mata.caducifolia_plants_3 <- length(unique(mata.caducifolia_plants_3$Plant_Species))
+
+######
+## Plant degree = 4
+#####
+# How many specialist trees are dispersed by only 4 frugivore in the mata.caducifolia?
+
+mata.caducifolia_plants_4 <- interaction_md.MC %>%
+  filter(Plant_degree == 4, .keep_all = TRUE)
+
+# how many of those are dispersed only by endangered frugivores?
+# knock out the species of low endangerment risk
+
+mata.caducifolia_plants_4_noLC <- mata.caducifolia_plants_4 %>%
+  filter(Frug_IUCN != "LC") 
+
+# save the counts
+
+mata.caducifolia_plants_4_noLC <- length(unique(mata.caducifolia_plants_4_noLC$Plant_Species))
+mata.caducifolia_plants_4 <- length(unique(mata.caducifolia_plants_4$Plant_Species))
+
+######
+## Plant degree = 5
+#####
+
+# How many specialist trees are dispersed by only 5 frugivore in the mata.caducifolia?
+
+mata.caducifolia_plants_5 <- interaction_md.MC %>%
+  filter(Plant_degree == 5, .keep_all = TRUE)
+
+# how many of those are dispersed only by endangered frugivores?
+# knock out the species of low endangerment risk
+
+mata.caducifolia_plants_5_noLC <- mata.caducifolia_plants_5 %>%
+  filter(Frug_IUCN != "LC") 
+
+# save the counts
+
+mata.caducifolia_plants_5_noLC <- length(unique(mata.caducifolia_plants_5_noLC$Plant_Species))
+mata.caducifolia_plants_5 <- length(unique(mata.caducifolia_plants_5$Plant_Species))
+
+```
+
+
+```{r make the table}
+# make blank data frame
+specialist_tree_table_biome <- data.frame(matrix(ncol = 5, nrow = 5))
+
+# provide column names
+colnames(specialist_tree_table_biome) <- c('Region', 'Plant_degree', 'Plant_species_total_count', 'Plant_species_only_dispersed_by_endangered_frugivores', 'Proportion_plant_spp_only_dispersed_by_endangered_frugivores') 
+
+specialist_tree_table_biome$Region <- "Biome"
+
+specialist_tree_table_biome$Plant_degree <-seq(1:5)
+
+specialist_tree_table_biome$Plant_species_total_count <-c(biome_plants_1, biome_plants_2, biome_plants_3, biome_plants_4, biome_plants_5)
+
+specialist_tree_table_biome$Plant_species_only_dispersed_by_endangered_frugivores <-c(biome_plants_1_noLC, biome_plants_2_noLC, biome_plants_3_noLC, biome_plants_4_noLC, biome_plants_5_noLC)
+
+specialist_tree_table_biome$Proportion_plant_spp_only_dispersed_by_endangered_frugivores<-c(specialist_tree_table_biome$Plant_species_only_dispersed_by_endangered_frugivores/specialist_tree_table_biome$Plant_species_total_count)
+
+####
+# repeat per ecoregion
+####
+
+# serra do mar
+
+# make blank data frame
+specialist_tree_table_serra.do.mar <- data.frame(matrix(ncol = 5, nrow = 5))
+
+# provide column names
+colnames(specialist_tree_table_serra.do.mar) <- c('Region', 'Plant_degree', 'Plant_species_total_count', 'Plant_species_only_dispersed_by_endangered_frugivores', 'Proportion_plant_spp_only_dispersed_by_endangered_frugivores') 
+
+specialist_tree_table_serra.do.mar$Region <- "serra.do.mar"
+
+specialist_tree_table_serra.do.mar$Plant_degree <-seq(1:5)
+
+specialist_tree_table_serra.do.mar$Plant_species_total_count <-c(serra.do.mar_plants_1, serra.do.mar_plants_2, serra.do.mar_plants_3, serra.do.mar_plants_4, serra.do.mar_plants_5)
+
+specialist_tree_table_serra.do.mar$Plant_species_only_dispersed_by_endangered_frugivores <-c(serra.do.mar_plants_1_noLC, serra.do.mar_plants_2_noLC, serra.do.mar_plants_3_noLC, serra.do.mar_plants_4_noLC, serra.do.mar_plants_5_noLC)
+
+specialist_tree_table_serra.do.mar$Proportion_plant_spp_only_dispersed_by_endangered_frugivores<-c(specialist_tree_table_serra.do.mar$Plant_species_only_dispersed_by_endangered_frugivores/specialist_tree_table_serra.do.mar$Plant_species_total_count)
+
+###
+# cerrado
+###
+
+# make blank data frame
+specialist_tree_table_cerrado <- data.frame(matrix(ncol = 5, nrow = 5))
+
+# provide column names
+colnames(specialist_tree_table_cerrado) <- c('Region', 'Plant_degree', 'Plant_species_total_count', 'Plant_species_only_dispersed_by_endangered_frugivores', 'Proportion_plant_spp_only_dispersed_by_endangered_frugivores') 
+
+specialist_tree_table_cerrado$Region <- "cerrado"
+
+specialist_tree_table_cerrado$Plant_degree <-seq(1:5)
+
+specialist_tree_table_cerrado$Plant_species_total_count <-c(cerrado_plants_1, cerrado_plants_2, cerrado_plants_3, cerrado_plants_4, cerrado_plants_5)
+
+specialist_tree_table_cerrado$Plant_species_only_dispersed_by_endangered_frugivores <-c(cerrado_plants_1_noLC, cerrado_plants_2_noLC, cerrado_plants_3_noLC, cerrado_plants_4_noLC, cerrado_plants_5_noLC)
+
+specialist_tree_table_cerrado$Proportion_plant_spp_only_dispersed_by_endangered_frugivores<-c(specialist_tree_table_cerrado$Plant_species_only_dispersed_by_endangered_frugivores/specialist_tree_table_cerrado$Plant_species_total_count)
+
+##
+# Mata caducifolia
+##
+
+# make blank data frame
+specialist_tree_table_mata.caducifolia <- data.frame(matrix(ncol = 5, nrow = 5))
+
+# provide column names
+colnames(specialist_tree_table_mata.caducifolia) <- c('Region', 'Plant_degree', 'Plant_species_total_count', 'Plant_species_only_dispersed_by_endangered_frugivores', 'Proportion_plant_spp_only_dispersed_by_endangered_frugivores') 
+
+specialist_tree_table_mata.caducifolia$Region <- "mata.caducifolia"
+
+specialist_tree_table_mata.caducifolia$Plant_degree <-seq(1:5)
+
+specialist_tree_table_mata.caducifolia$Plant_species_total_count <-c(mata.caducifolia_plants_1, mata.caducifolia_plants_2, mata.caducifolia_plants_3, mata.caducifolia_plants_4, mata.caducifolia_plants_5)
+
+specialist_tree_table_mata.caducifolia$Plant_species_only_dispersed_by_endangered_frugivores <-c(mata.caducifolia_plants_1_noLC, mata.caducifolia_plants_2_noLC, mata.caducifolia_plants_3_noLC, mata.caducifolia_plants_4_noLC, mata.caducifolia_plants_5_noLC)
+
+specialist_tree_table_mata.caducifolia$Proportion_plant_spp_only_dispersed_by_endangered_frugivores<-c(specialist_tree_table_mata.caducifolia$Plant_species_only_dispersed_by_endangered_frugivores/specialist_tree_table_mata.caducifolia$Plant_species_total_count)
+
+###
+#bring them together
+###
+
+specialist_tree_table <- rbind(specialist_tree_table_biome, specialist_tree_table_serra.do.mar, specialist_tree_table_cerrado, specialist_tree_table_mata.caducifolia)
+
+###
+# display
+specialist_tree_table
+
+```
+
+  This is displayed in 'Table 1' in the manuscript - you can see that large portions of the specialist trees at the biome and ecoregion scales tend to have a reliance on endangered frugivores as dispersal partners. NaNs are where there were no frugivores in that category.  
+
+
+# Session Info and Package Loading Messages
+
 
 ```{r Session Info}
 sessionInfo()
 ```
-
