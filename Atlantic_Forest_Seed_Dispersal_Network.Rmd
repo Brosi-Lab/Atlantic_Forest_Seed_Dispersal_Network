@@ -4091,6 +4091,33 @@ specialist_tree_table
 
   This is displayed in 'Table 1' in the manuscript - you can see that large portions of the specialist trees at the biome and ecoregion scales tend to have a reliance on endangered frugivores as dispersal partners. NaNs are where there were no frugivores in that category.  
 
+```{r neg binomial glm of specialist trees and higher risk frugivore associations}
+# these models tend to work better when the data range includes 0, so subtract 1 from all in response variable
+biome_interaction_md$Plant_degree_sub_one <- biome_interaction_md$Plant_degree-1 
+
+specialist_tree_mod <- glm.nb(Plant_degree_sub_one ~ Frug_risk_level, data = biome_interaction_md)
+
+summary(specialist_tree_mod) # look at output
+
+aov.specialist_tree_mod= Anova(specialist_tree_mod) # simplify model results
+
+aov.specialist_tree_mod # display model results in simplified form
+
+```
+
+```{r model validation analysis 2}
+
+sim.out.specialist_tree_mod <- simulateResiduals(fittedModel = specialist_tree_mod, plot = F)
+
+plot(sim.out.specialist_tree_mod) # plot residual plots
+
+testDispersion(sim.out.specialist_tree_mod, plot = F) # print dispersion results
+
+testZeroInflation(sim.out.specialist_tree_mod, plot = F) # print zero-inflation results
+
+```
+
+  Not clear if data meets model assumptions.
 
 # Session Info and Package Loading Messages
 
