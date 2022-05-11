@@ -4088,7 +4088,7 @@ specialist_tree_table <- rbind(specialist_tree_table_biome, specialist_tree_tabl
 specialist_tree_table
 
 ```
-
+Test. 
   This is displayed in 'Table 1' in the manuscript - you can see that large portions of the specialist trees at the biome and ecoregion scales tend to have a reliance on endangered frugivores as dispersal partners. NaNs are where there were no frugivores in that category.  
 
 ```{r neg binomial glm of specialist trees and higher risk frugivore associations}
