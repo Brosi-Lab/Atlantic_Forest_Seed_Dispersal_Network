@@ -4097,6 +4097,10 @@ biome_interaction_md$Plant_degree_sub_one <- biome_interaction_md$Plant_degree-1
 
 specialist_tree_mod <- glm.nb(Plant_degree_sub_one ~ Frug_risk_level, data = biome_interaction_md)
 
+# use glmmTBM to account for zero inflation - ziformula = ~1,
+
+summary(specialist_tree_mod)
+
 summary(specialist_tree_mod) # look at output
 
 aov.specialist_tree_mod= Anova(specialist_tree_mod) # simplify model results
@@ -4111,9 +4115,9 @@ sim.out.specialist_tree_mod <- simulateResiduals(fittedModel = specialist_tree_m
 
 plot(sim.out.specialist_tree_mod) # plot residual plots
 
-testDispersion(sim.out.specialist_tree_mod, plot = F) # print dispersion results
+testDispersion(sim.out.specialist_tree_mod, plot = T) # print dispersion results
 
-testZeroInflation(sim.out.specialist_tree_mod, plot = F) # print zero-inflation results
+testZeroInflation(sim.out.specialist_tree_mod, plot = T) # print zero-inflation results
 
 ```
 
