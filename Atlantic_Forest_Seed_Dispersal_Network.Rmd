@@ -42,10 +42,12 @@ In our analysis, we:
 ```{r create package list, message = F, results = F, warning = F}
 # Create package list
 
-Packages <- c("tidyverse", "knitr", "car", "bipartite", "MASS", "ggplot2", "lme4", "boot", "gridExtra", "lattice", "gginnards", "viridis", "viridisLite", "raster", "sp", "rgdal", "cowplot", "AER", "pscl", "degreenet", "DHARMa", "broom.mixed", "grid", "ggpubr")
+Packages <- c("tidyverse", "knitr", "car", "bipartite", "MASS", "ggplot2", "lme4", "boot", "gridExtra", "lattice", "gginnards", "viridis", "viridisLite", "raster", "sp", "rgdal", "cowplot", "AER", "pscl", "degreenet", "DHARMa", "broom.mixed", "grid", "ggpubr", "glmmTMB")
+
 # Load packages
 
 lapply(Packages, library, character.only = TRUE)
+
 
 # Clean 
 
@@ -240,7 +242,9 @@ i.mat[i.mat > 0] <- 1 # change interaction matrix to only 1's and 0's
 biome.mat <- i.mat # copy and rename
 
 # make interaction metadata
-biome_interaction_md <- unique(df.EL[c("Frugivore_Species","Plant_Species")])
+
+biome_interaction_md <- master.df %>%
+  distinct(Frugivore_Species, Plant_Species, .keep_all = TRUE)
 
 # Clean
 rm(df.EL, el.info, i.mat)
@@ -259,41 +263,51 @@ Use `bipartite` specieslevel function to get degree for each species and add to 
 
 Frugivore_degree <- specieslevel(biome.mat, level = "higher", index = "degree")
 
+# make the rownames (which are the frugivore species) the first column 
+
 Frugivore_degree <- Frugivore_degree %>%
-  tibble::rownames_to_column("Frugivore_Species") #get it set up to join to metadata
+  tibble::rownames_to_column("Frugivore_Species")
 
-names(Frugivore_degree)[2] <-"Frugivore_degree" #rename
+# rename the second column 
 
- biome_frug_md<- merge(Frugivore_degree, biome_frug_md, by = "Frugivore_Species") #add degree to frugivore metadata
+names(Frugivore_degree)[2] <-"Frugivore_degree"
+
+# add the frugivore degree data to the frugivore metadata now
+
+biome_frug_md <- merge(Frugivore_degree, biome_frug_md, by = "Frugivore_Species")
 
 #------------------------------------------------#
 
 # Compute degree for plants
+
 Plant_degree <- specieslevel(biome.mat, level = "lower", index = "degree")
 
+# convert the rows to be the first column (they are the plant species names)
+
 Plant_degree <- Plant_degree %>%
-  tibble::rownames_to_column("Plant_Species") #get it set up to join df
+  tibble::rownames_to_column("Plant_Species") 
 
-names(Plant_degree)[2] <-"Plant_degree" #rename
+# rename the second column 
 
-biome_plant_md <- merge(biome_plant_md, Plant_degree, by = "Plant_Species") #add degree to plant metadata so I have a record of degree for each plant spp in network
+names(Plant_degree)[2] <-"Plant_degree"
+
+# add plant degree to the plant metadata
+
+biome_plant_md <- merge(biome_plant_md, Plant_degree, by = "Plant_Species") 
 
 #------------------------------------------------#
 
-# Also add degree for plants and frugivores to the interaction metadata for later
+# add degree for plants and frugivores to the interaction metadata for later
 
 biome_interaction_md <-merge(biome_interaction_md, Plant_degree, by = "Plant_Species")
 
 biome_interaction_md <-merge(biome_interaction_md, Frugivore_degree, by = "Frugivore_Species")
 
-# Next, add the IUCN categoriesand the broader groups of higher risk and lower risk frugivores to the interaction_md
+#-------------------------------------------------#
 
-temp <- biome_frug_md %>%
-  dplyr::select(Frugivore_Species, Frug_IUCN, Frug_risk_level, Frug_Population_Trend)
+# clean
 
-biome_interaction_md<-merge(biome_interaction_md, temp, by = "Frugivore_Species")
-
-rm(temp, Plant_degree, Frugivore_degree)
+rm(Plant_degree, Frugivore_degree)
 
 ```
 
@@ -367,7 +381,7 @@ ER.df <- left_join(df.only.with.coords, ecoregion.info, "longlat")
 ER.df <- ER.df %>% filter(!is.na(TIPO))
 
 # Clean
-rm(master.df, sites, sites2, df.only.with.coords, test, data2, veg, ecoregion.info)
+rm(sites, sites2, df.only.with.coords, test, data2, veg, ecoregion.info)
 
 # We want to keep ER.df (ecoregion dataframe) in the environment for next few steps
 ```
@@ -521,7 +535,7 @@ mat.mata.caducifolia <- i.mat
 interaction_md.MC <- unique(df.EL[c("Frugivore_Species","Plant_Species")])
 
 # Clean
-rm(i.mat, el.info, el.to.imat, df.EL, mata.caducifolia.df, cerrado.df, serra.do.mar.df)
+rm(i.mat, el.info, el.to.imat, df.EL)
 
 ```
 
@@ -553,12 +567,16 @@ Frugivore_degree.MC <- specieslevel(mat.mata.caducifolia, level = "higher", inde
 
 # Add frugivore degree to frugivore metadata:
 
-# cerrado 
+# cerrado, make the row names (which are the frugivore species) into the first column 
 
 Frugivore_degree.CR <- Frugivore_degree.CR %>%
   tibble::rownames_to_column("Frugivore_Species") 
 
+# and name the second column frugivore degree
+
 names(Frugivore_degree.CR)[2] <- "Frugivore_degree" 
+
+# now join the frugivore degree data to the frugivore metadata 
 
 cerrado_frug_md <- merge(Frugivore_degree.CR, cerrado_frug_md, 
                         by = "Frugivore_Species") 
@@ -572,6 +590,8 @@ Frugivore_degree.SM <- Frugivore_degree.SM %>%
 
 names(Frugivore_degree.SM)[2] <-"Frugivore_degree"
 
+# add frugivore degree to seraa do mar frugivore metadata
+
 serra.do.mar_frug_md <- merge(Frugivore_degree.SM, serra.do.mar_frug_md, 
                               by = "Frugivore_Species") 
 
@@ -583,6 +603,8 @@ Frugivore_degree.MC <- Frugivore_degree.MC %>%
   tibble::rownames_to_column("Frugivore_Species")
 
 names(Frugivore_degree.MC)[2] <- "Frugivore_degree" 
+
+# add frugivore degree to mata caducifolia frugivore metadata
 
 mata.caducifolia_frug_md <- merge(Frugivore_degree.MC, mata.caducifolia_frug_md, 
                                  by = "Frugivore_Species") 
@@ -600,6 +622,8 @@ Plant_degree.CR <- Plant_degree.CR %>%
 
 names(Plant_degree.CR)[2] <- "Plant_degree"
 
+# add cerrado plant degree to cerrado plant meta data 
+
 cerrado_plant_md <- merge(cerrado_plant_md, Plant_degree.CR, 
                           by = "Plant_Species")
 
@@ -615,6 +639,8 @@ Plant_degree.MC <- Plant_degree.MC %>%
 
 names(Plant_degree.MC)[2] <- "Plant_degree"
 
+# add mata caducifolia plant degree to plant metadata 
+
 mata.caducifolia_plant_md <- merge(mata.caducifolia_plant_md, Plant_degree.MC,
                                    by = "Plant_Species") 
 
@@ -628,6 +654,8 @@ Plant_degree.SM <- Plant_degree.SM %>%
   tibble::rownames_to_column("Plant_Species") 
 
 names(Plant_degree.SM)[2] <- "Plant_degree" 
+
+# add serra do mar plant degree to plant md
 
 serra.do.mar_plant_md <- merge(serra.do.mar_plant_md, Plant_degree.SM, 
                                by = "Plant_Species") 
@@ -3516,6 +3544,11 @@ coextinction_panel
 
 ### Analysis 4: Data overview - examine plant data, what proportion of trees w/degrees of only 1-5 (specialists) rely on endangered frugivores?
 
+First start with looking at some histograms...
+
+#### Plant degree data distribution
+
+Make histograms to look at plant degree distributions in the different regions/biome
 
 ```{r histograms to look at plant degree distributions, message=FALSE, warning=FALSE}
 
@@ -3547,573 +3580,625 @@ ggarrange(biome_plant_hist, serra.do.mar_plant_hist, cerrado_plant_hist, mata.ca
 
   All have right skew, with a few super generalist trees but many with less than 10 or 20 frugivore partners. 
 
-### Table for analysis 4: proportions of specialist trees relying on endangered frugivores
+#### Proportions of specialist trees relying on endangered frugivores
 To get an idea for what might be driving the trend seen in the coextinction simulations, we want to know what trees are relying on the higher risk frugivores as disperser partners in this network. 
-```{r numbers of specialist trees and how many rely on endangered frugs}
+  This is where the data used in Table 1 in the paper is calculated.
 
-#----#----#
-# Biome
-#----#----#
+##### Biome-scale Network
+How many specialist trees are dispersed by only 1 frugivore in the biome network?
 
-######
-## Plant degree = 1
-#####
-
-# How many specialist trees are dispersed by only 1 frugivore in the biome?
+```{r how many tree species have degree of 1 in the biome scale network}
 
 biome_plants_1 <- biome_interaction_md %>%
   filter(Plant_degree == 1, .keep_all = TRUE)
 
-# How many of those are dispersed only by endangered frugivores?
+length(unique(biome_plants_1$Plant_Species))
 
-# Knock out the species of low endangerment risk
+biome_plants_1_frugs <- biome_plants_1 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-biome_plants_1_noLC <- biome_plants_1 %>%
-  filter(Frug_IUCN != "LC") 
+names(biome_plants_1_frugs)[3] <-"Frugivore_Species" #rename
 
-# Store the counts
+```
 
-biome_plants_1 <- length(unique(biome_plants_1$Plant_Species))
+How many of those are dispersed only by endangered frugivores?
 
-biome_plants_1_noLC <- length(unique(biome_plants_1_noLC$Plant_Species))
+```{r how many trees with degree of 1 and are dispersed only by endangered frugivores in the biome scale network}
+#knock out the species of low endangerment risk
+biome_plants_1_noLC <- biome_plants_1_frugs %>%
+  filter(Frug_IUCN != "LC")
 
-######
-## Plant degree = 2
-#####
+biome_plants_1_noLC_counts <- biome_plants_1_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
 
-# How many specialist trees are dispersed by only 2 frugivore in the biome?
+#only the single row occurrences tell me which plant species actually ONLY had endangered frugivores as their disperser
+length(biome_plants_1_noLC_counts$`n()`[which(biome_plants_1_noLC_counts$`n()` == 1)])
+# 156 specialist biome_biome_plants only dispersed by endangered animals
+```
+
+How many trees are only dispersed by 2 frugivores in the biome network? 
+
+```{r how many trees with a degree of 2 exist in the biome scale network}
 
 biome_plants_2 <- biome_interaction_md %>%
-  filter(Plant_degree == 2, .keep_all = TRUE)
+  filter(Plant_degree ==2, .keep_all = TRUE)
 
-# How many of those are dispersed only by endangered frugivores?
+length(unique(biome_plants_2$Plant_Species))
 
-# Knock out the species of low endangerment risk
+# 120 tree species
 
-biome_plants_2_noLC <- biome_plants_2 %>%
-  filter(Frug_IUCN != "LC") 
+```
 
-# Store the counts
+How many tree species with a degree of 2 are dispersed only by endangered frugivores in the biome network?
 
-biome_plants_2_noLC <- length(unique(biome_plants_2_noLC$Plant_Species))
+```{r how many trees with degree of 2 are only dispersed by endangered frugivores in the biome scale network}
 
-biome_plants_2 <- length(unique(biome_plants_2$Plant_Species))
+biome_plants_2_frugIUCN <- biome_plants_2 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-######
-## Plant degree = 3
-#####
+biome_plants_2_frugIUCN_noLC <- biome_plants_2_frugIUCN %>%
+  filter(Frug_IUCN != "LC")
 
-# How many specialist trees are dispersed by only 3 frugivore in the biome?
+counts <- biome_plants_2_frugIUCN_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
+
+# again, going by row number, we are interested in the trees that have only two observations (rows) and of which both of those rows/observations are of interactions with endangered frugivores
+
+length(counts$`n()`[which(counts$`n()` == 2)])
+
+# 37 tree species of degree 2 are only connected to endangered frugivores
+# 120 tree species in total that have degree 2
+
+```
+
+How many trees are dispersed by only 3 frugivores in the biome network?
+
+```{r how many trees with degree of 3 in the biome scale network}
 
 biome_plants_3 <- biome_interaction_md %>%
   filter(Plant_degree == 3, .keep_all = TRUE)
 
-# How many of those are dispersed only by endangered frugivores?
+length(unique(biome_plants_3$Plant_Species))
 
-# Knock out the species of low endangerment risk
+#55 
 
-biome_plants_3_noLC <- biome_plants_3 %>%
-  filter(Frug_IUCN != "LC") 
+```
 
-# Store the counts
+How many of the trees with a degree of 3 are dispersed only by endangered frugivores in the biome network?
 
-biome_plants_3_noLC <- length(unique(biome_plants_3_noLC$Plant_Species))
+```{r how many trees with degree of 3 only dispersed by endangered frugivores in the biome scale network}
 
-biome_plants_3 <- length(unique(biome_plants_3$Plant_Species))
+biome_plants_3_frugIUCN <- biome_plants_3 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-######
-## Plant degree = 4
-#####
+biome_plants_3_noLC <- biome_plants_3_frugIUCN %>%
+  filter(Frug_IUCN != "LC")
 
-# How many specialist trees are dispersed by only 4 frugivore in the biome?
+biome_plants_3_noLC_counts <- biome_plants_3_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
+
+length(biome_plants_3_noLC_counts$`n()`[which(biome_plants_3_noLC_counts$`n()` == 3)])
+
+```
+
+How many trees are dispersed by 4 frugivores in the biome network?
+
+```{r how many trees species have a degree of 4 in the biome scale network}
 
 biome_plants_4 <- biome_interaction_md %>%
   filter(Plant_degree == 4, .keep_all = TRUE)
 
-# How many of those are dispersed only by endangered frugivores?
+length(unique(biome_plants_4$Plant_Species))
 
-# Knock out the species of low endangerment risk
+```
+How many of the trees with a degree of 4 are dispersed only by endangered frugivores in the biome network?
 
-biome_plants_4_noLC <- biome_plants_4 %>%
-  filter(Frug_IUCN != "LC") 
+```{r how many trees with degree of 4 only dispersed by endangered frugs in the biome network}
 
-# Store the counts
+biome_plants_4_frugs <- biome_plants_4 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-biome_plants_4_noLC <- length(unique(biome_plants_4_noLC$Plant_Species))
+biome_plants_4_noLC <- biome_plants_4_frugs %>%
+  filter(Frug_IUCN != "LC")
 
-biome_plants_4 <- length(unique(biome_plants_4$Plant_Species))
+biome_plants_4_noLC_counts <- biome_plants_4_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
 
-######
-## Plant degree = 5
-#####
+length(biome_plants_4_noLC_counts$`n()`[which(biome_plants_4_noLC_counts$`n()` == 4)])
 
-# How many specialist trees are dispersed by only 5 frugivore in the biome?
+# 5 with degree 4 that are connected only to end frug
+
+```
+
+How many tree species in the biome network have a degree of 5?
+
+```{r how many trees with degree of 5 in the biome network}
 
 biome_plants_5 <- biome_interaction_md %>%
   filter(Plant_degree == 5, .keep_all = TRUE)
 
-# How many of those are dispersed only by endangered frugivores?
+length(unique(biome_plants_5$Plant_Species))
 
-# Knock out the species of low endangerment risk
+```
 
-biome_plants_5_noLC <- biome_plants_5 %>%
-  filter(Frug_IUCN != "LC") 
+How many tree species with a degree of 5 are dispersed only by endangered frugivores in the biome network?
 
-# Store the counts
+```{r how many trees with degree of 5 are only dispersed by endangered frugivores in the biome network}
 
-biome_plants_5_noLC <- length(unique(biome_plants_5_noLC$Plant_Species))
+biome_plants_5_frugs <- biome_plants_5 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-biome_plants_5 <- length(unique(biome_plants_5$Plant_Species))
+biome_plants_5_noLC <- biome_plants_5_frugs %>%
+  filter(Frug_IUCN != "LC")
 
+biome_plants_5_noLC_counts <- biome_plants_5_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
 
+length(biome_plants_5_noLC_counts$`n()`[which(biome_plants_5_noLC_counts$`n()` == 5)])
 
-#-----#----#-----#----#
-# Repeat for Serra do Mar
-#-----#----#-----#----#
+```
 
-######
-## Plant degree = 1
-#####
+##### Ecoregion-scale networks: Serra do Mar
 
-# How many specialist trees are dispersed by only 1 frugivore in the Serra do Mar network?
+How many specialist trees are dispersed by only 1 frugivore in the serra.do.mar network?
+
+```{r how many tree species have degree of 1 in the serra do mar scale network}
 
 serra.do.mar_plants_1 <- interaction_md.SM %>%
   filter(Plant_degree == 1, .keep_all = TRUE)
 
-# How many of those are dispersed only by endangered frugivores?
+length(unique(serra.do.mar_plants_1$Plant_Species))
 
-# Knock out the species of low endangerment risk
+serra.do.mar_plants_1_frugs <- serra.do.mar_plants_1 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-serra.do.mar_plants_1_noLC <- serra.do.mar_plants_1 %>%
-  filter(Frug_IUCN != "LC") 
+names(serra.do.mar_plants_1_frugs)[3] <-"Frugivore_Species" #rename
 
-# Store counts
+```
 
-serra.do.mar_plants_1_noLC <- length(unique(serra.do.mar_plants_1_noLC$Plant_Species))
+How many of those are dispersed only by endangered frugivores?
 
-serra.do.mar_plants_1 <- length(unique(serra.do.mar_plants_1$Plant_Species))
+```{r how many trees with degree of 1 and are dispersed only by endangered frugivores in the serra.do.mar scale network}
+serra.do.mar_plants_1_noLC <- serra.do.mar_plants_1_frugs %>%
+  filter(Frug_IUCN != "LC")
 
-######
-## Plant degree = 2
-#####
+serra.do.mar_plants_1_noLC_counts <- serra.do.mar_plants_1_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
 
-# How many specialist trees are dispersed by only 2 frugivore in the Serra do Mar network?
+#only the single row occurrences tell me which plant species actually ONLY had endangered frugivores as their disperser
+length(serra.do.mar_plants_1_noLC_counts$`n()`[which(serra.do.mar_plants_1_noLC_counts$`n()` == 1)])
+
+```
+
+How many trees are only dispersed by 2 frugivores in the serra.do.mar network? 
+
+```{r how many trees with a degree of 2 exist in the serra.do.mar scale network}
 
 serra.do.mar_plants_2 <- interaction_md.SM %>%
-  filter(Plant_degree == 2, .keep_all = TRUE)
+  filter(Plant_degree ==2, .keep_all = TRUE)
 
-# How many of those are dispersed only by endangered frugivores?
+length(unique(serra.do.mar_plants_2$Plant_Species))
 
-# Knock out the species of low endangerment risk
 
-serra.do.mar_plants_2_noLC <- serra.do.mar_plants_2 %>%
-  filter(Frug_IUCN != "LC") 
+```
 
-# Store counts
+How many tree species with a degree of 2 are dispersed only by endangered frugivores in the serra.do.mar network?
 
-serra.do.mar_plants_2_noLC <- length(unique(serra.do.mar_plants_2_noLC$Plant_Species))
+```{r how many trees with degree of 2 are only dispersed by endangered frugivores in the serra.do.mar scale network}
 
-serra.do.mar_plants_2 <- length(unique(serra.do.mar_plants_2$Plant_Species))
+serra.do.mar_plants_2_frugIUCN <- serra.do.mar_plants_2 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-######
-## Plant degree = 3
-#####
+serra.do.mar_plants_2_frugIUCN_noLC <- serra.do.mar_plants_2_frugIUCN %>%
+  filter(Frug_IUCN != "LC")
 
-# How many specialist trees are dispersed by only 3 frugivore in the Serra do Mar network?
+counts <- serra.do.mar_plants_2_frugIUCN_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
+
+# again, going by row number, we are interested in the trees that have only two observations (rows) and of which both of those rows/observations are of interactions with endangered frugivores
+
+length(counts$`n()`[which(counts$`n()` == 2)])
+
+```
+
+How many trees are dispersed by only 3 frugivores in the serra.do.mar network?
+
+```{r how many trees with degree of 3 in the serra.do.mar scale network}
 
 serra.do.mar_plants_3 <- interaction_md.SM %>%
   filter(Plant_degree == 3, .keep_all = TRUE)
 
+length(unique(serra.do.mar_plants_3$Plant_Species))
 
-# How many of those are dispersed only by endangered frugivores?
+```
 
-# Knock out the species of low endangerment risk
+How many of the trees with a degree of 3 are dispersed only by endangered frugivores in the serra.do.mar network?
 
-serra.do.mar_plants_3_noLC <- serra.do.mar_plants_3 %>%
-  filter(Frug_IUCN != "LC") 
+```{r how many trees with degree of 3 only dispersed by endangered frugivores in the serra.do.mar scale network}
 
-# Store counts
+serra.do.mar_plants_3_frugIUCN <- serra.do.mar_plants_3 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-serra.do.mar_plants_3_noLC <- length(unique(serra.do.mar_plants_3_noLC$Plant_Species))
+serra.do.mar_plants_3_noLC <- serra.do.mar_plants_3_frugIUCN %>%
+  filter(Frug_IUCN != "LC")
 
-serra.do.mar_plants_3 <- length(unique(serra.do.mar_plants_3$Plant_Species))
+serra.do.mar_plants_3_noLC_counts <- serra.do.mar_plants_3_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
 
+length(serra.do.mar_plants_3_noLC_counts$`n()`[which(serra.do.mar_plants_3_noLC_counts$`n()` == 3)])
 
-######
-## Plant degree = 4
-#####
+```
 
-# How many specialist trees are dispersed by only 4 frugivore in the Serra do Mar network?
+How many trees are dispersed by 4 frugivores in the serra.do.mar network?
+
+```{r how many trees species have a degree of 4 in the serra.do.mar scale network}
 
 serra.do.mar_plants_4 <- interaction_md.SM %>%
   filter(Plant_degree == 4, .keep_all = TRUE)
 
-# How many of those are dispersed only by endangered frugivores?
+length(unique(serra.do.mar_plants_4$Plant_Species))
 
-# Knock out the species of low endangerment risk
+```
+How many of the trees with a degree of 4 are dispersed only by endangered frugivores in the serra.do.mar network?
 
-serra.do.mar_plants_4_noLC <- serra.do.mar_plants_4 %>%
-  filter(Frug_IUCN != "LC") 
+```{r how many trees with degree of 4 only dispersed by endangered frugs in the serra.do.mar network}
 
-# Store counts
+serra.do.mar_plants_4_frugs <- serra.do.mar_plants_4 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-serra.do.mar_plants_4_noLC <- length(unique(serra.do.mar_plants_4_noLC$Plant_Species))
+serra.do.mar_plants_4_noLC <- serra.do.mar_plants_4_frugs %>%
+  filter(Frug_IUCN != "LC")
 
-serra.do.mar_plants_4 <- length(unique(serra.do.mar_plants_4$Plant_Species))
+serra.do.mar_plants_4_noLC_counts <- serra.do.mar_plants_4_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
 
-######
-## Plant degree = 5
-#####
+length(serra.do.mar_plants_4_noLC_counts$`n()`[which(serra.do.mar_plants_4_noLC_counts$`n()` == 4)])
 
-# How many specialist trees are dispersed by only 5 frugivore in the Serra do Mar network?
+```
+
+How many tree species in the serra.do.mar network have a degree of 5?
+
+```{r how many trees with degree of 5 in the serra.do.mar network}
 
 serra.do.mar_plants_5 <- interaction_md.SM %>%
   filter(Plant_degree == 5, .keep_all = TRUE)
 
-# How many of those are dispersed only by endangered frugivores?
+length(unique(serra.do.mar_plants_5$Plant_Species))
 
-# Knock out the species of low endangerment risk
+```
 
-serra.do.mar_plants_5_noLC <- serra.do.mar_plants_5 %>%
-  filter(Frug_IUCN != "LC") 
+How many tree species with a degree of 5 are dispersed only by endangered frugivores in the serra.do.mar network?
 
-# Store counts
+```{r how many trees with degree of 5 are only dispersed by endangered frugivores in the serra.do.mar network}
 
-serra.do.mar_plants_5_noLC <- length(unique(serra.do.mar_plants_5_noLC$Plant_Species))
+serra.do.mar_plants_5_frugs <- serra.do.mar_plants_5 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-serra.do.mar_plants_5 <- length(unique(serra.do.mar_plants_5$Plant_Species))
+serra.do.mar_plants_5_noLC <- serra.do.mar_plants_5_frugs %>%
+  filter(Frug_IUCN != "LC")
 
+serra.do.mar_plants_5_noLC_counts <- serra.do.mar_plants_5_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
 
+length(serra.do.mar_plants_5_noLC_counts$`n()`[which(serra.do.mar_plants_5_noLC_counts$`n()` == 5)])
 
-#-----#-----#-----#
-# Repeat for cerrado 
-#-----#-----#-----#
+```
 
-# How many specialist trees are dispersed by only 1 frugivore in the cerrado?
+##### Ecoregion-scale networks: Cerrado
+
+How many specialist trees are dispersed by only 1 frugivore in the cerrado network?
+
+```{r how many tree species have degree of 1 in the cerrado scale network}
 
 cerrado_plants_1 <- interaction_md.CR %>%
   filter(Plant_degree == 1, .keep_all = TRUE)
 
-# how many of those are dispersed only by endangered frugivores?
+length(unique(cerrado_plants_1$Plant_Species))
 
-# knock out the species of low endangerment risk
+cerrado_plants_1_frugs <- cerrado_plants_1 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-cerrado_plants_1_noLC <- cerrado_plants_1 %>%
-  filter(Frug_IUCN != "LC") 
+names(cerrado_plants_1_frugs)[3] <-"Frugivore_Species" #rename
 
-# store the counts
+```
 
-cerrado_plants_1_noLC <- length(unique(cerrado_plants_1_noLC$Plant_Species))
+How many of those are dispersed only by endangered frugivores?
 
-cerrado_plants_1 <- length(unique(cerrado_plants_1$Plant_Species))
+```{r how many trees with degree of 1 and are dispersed only by endangered frugivores in the cerrado scale network}
+cerrado_plants_1_noLC <- cerrado_plants_1_frugs %>%
+  filter(Frug_IUCN != "LC")
 
-######
-## Plant degree = 2
-#####
+cerrado_plants_1_noLC_counts <- cerrado_plants_1_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
 
-# How many specialist trees are dispersed by only 2 frugivore in the cerrado?
+#only the single row occurrences tell me which plant species actually ONLY had endangered frugivores as their disperser
+length(cerrado_plants_1_noLC_counts$`n()`[which(cerrado_plants_1_noLC_counts$`n()` == 1)])
+
+```
+
+How many trees are only dispersed by 2 frugivores in the cerrado network? 
+
+```{r how many trees with a degree of 2 exist in the cerrado scale network}
 
 cerrado_plants_2 <- interaction_md.CR %>%
-  filter(Plant_degree == 2, .keep_all = TRUE)
+  filter(Plant_degree ==2, .keep_all = TRUE)
 
-# how many of those are dispersed only by endangered frugivores?
+length(unique(cerrado_plants_2$Plant_Species))
 
-# knock out the species of low endangerment risk
 
-cerrado_plants_2_noLC <- cerrado_plants_2 %>%
-  filter(Frug_IUCN != "LC") 
+```
 
-# store the counts
+How many tree species with a degree of 2 are dispersed only by endangered frugivores in the cerrado network?
 
-cerrado_plants_2_noLC <- length(unique(cerrado_plants_2_noLC$Plant_Species))
+```{r how many trees with degree of 2 are only dispersed by endangered frugivores in the cerrado scale network}
 
-cerrado_plants_2 <- length(unique(cerrado_plants_2$Plant_Species))
+cerrado_plants_2_frugIUCN <- cerrado_plants_2 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-######
-## Plant degree = 3
-#####
+cerrado_plants_2_frugIUCN_noLC <- cerrado_plants_2_frugIUCN %>%
+  filter(Frug_IUCN != "LC")
 
-# How many specialist trees are dispersed by only 3 frugivore in the cerrado?
+counts <- cerrado_plants_2_frugIUCN_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
+
+# again, going by row number, we are interested in the trees that have only two observations (rows) and of which both of those rows/observations are of interactions with endangered frugivores
+
+length(counts$`n()`[which(counts$`n()` == 2)])
+
+```
+
+How many trees are dispersed by only 3 frugivores in the cerrado network?
+
+```{r how many trees with degree of 3 in the cerrado scale network}
 
 cerrado_plants_3 <- interaction_md.CR %>%
   filter(Plant_degree == 3, .keep_all = TRUE)
 
-# how many of those are dispersed only by endangered frugivores?
+length(unique(cerrado_plants_3$Plant_Species))
 
-# knock out the species of low endangerment risk
+```
 
-cerrado_plants_3_noLC <- cerrado_plants_3 %>%
-  filter(Frug_IUCN != "LC") 
+Zero trees in the cerrado ecoregion network have degree = 3.
 
-# store the counts
 
-cerrado_plants_3_noLC <- length(unique(cerrado_plants_3_noLC$Plant_Species))
+How many trees are dispersed by 4 frugivores in the cerrado network?
 
-cerrado_plants_3 <- length(unique(cerrado_plants_3$Plant_Species))
-
-######
-## Plant degree = 4
-#####
-
-# How many specialist trees are dispersed by only 4 frugivore in the cerrado?
+```{r how many trees species have a degree of 4 in the cerrado scale network}
 
 cerrado_plants_4 <- interaction_md.CR %>%
   filter(Plant_degree == 4, .keep_all = TRUE)
 
-# how many of those are dispersed only by endangered frugivores?
+length(unique(cerrado_plants_4$Plant_Species))
 
-# knock out the species of low endangerment risk
+```
+Zero trees in the cerrado ecoregion network have degree = 4.
 
-cerrado_plants_4_noLC <- cerrado_plants_4 %>%
-  filter(Frug_IUCN != "LC") 
 
-# store the counts
+How many tree species in the cerrado network have a degree of 5?
 
-cerrado_plants_4_noLC <- length(unique(cerrado_plants_4_noLC$Plant_Species))
-
-cerrado_plants_4 <- length(unique(cerrado_plants_4$Plant_Species))
-
-######
-## Plant degree = 5
-#####
-
-# How many specialist trees are dispersed by only 5 frugivore in the cerrado?
+```{r how many trees with degree of 5 in the cerrado network}
 
 cerrado_plants_5 <- interaction_md.CR %>%
   filter(Plant_degree == 5, .keep_all = TRUE)
 
-# how many of those are dispersed only by endangered frugivores?
+length(unique(cerrado_plants_5$Plant_Species))
 
-# knock out the species of low endangerment risk
+```
 
-cerrado_plants_5_noLC <- cerrado_plants_5 %>%
-  filter(Frug_IUCN != "LC") 
-
-# store the counts
-
-cerrado_plants_5_noLC <- length(unique(cerrado_plants_5_noLC$Plant_Species))
-
-cerrado_plants_5 <- length(unique(cerrado_plants_5$Plant_Species))
+Zero trees in the cerrado ecoregion network have degree = 5.
 
 
+##### Ecoregion-scale networks: Mata Caducifolia
 
-#-----#-----#-----#-----#-----#
-# Repeat for mata caducifolia 
-#-----#-----#-----#-----#-----#
+How many specialist trees are dispersed by only 1 frugivore in the mata.caducifolia network?
 
-# How many specialist trees are dispersed by only 1 frugivore in the mata.caducifolia?
+```{r how many tree species have degree of 1 in the mata caducifolia scale network}
 
 mata.caducifolia_plants_1 <- interaction_md.MC %>%
   filter(Plant_degree == 1, .keep_all = TRUE)
 
-# how many of those are dispersed only by endangered frugivores?
-# knock out the species of low endangerment risk
+length(unique(mata.caducifolia_plants_1$Plant_Species))
 
-mata.caducifolia_plants_1_noLC <- mata.caducifolia_plants_1 %>%
-  filter(Frug_IUCN != "LC") 
+mata.caducifolia_plants_1_frugs <- mata.caducifolia_plants_1 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-# save the counts
+names(mata.caducifolia_plants_1_frugs)[3] <-"Frugivore_Species" #rename
 
-mata.caducifolia_plants_1_noLC <- length(unique(mata.caducifolia_plants_1_noLC$Plant_Species))
-mata.caducifolia_plants_1 <- length(unique(mata.caducifolia_plants_1$Plant_Species))
+```
 
-######
-## Plant degree = 2
-#####
+How many of those are dispersed only by endangered frugivores?
 
-# How many specialist trees are dispersed by only 2 frugivore in the mata.caducifolia?
+```{r how many trees with degree of 1 and are dispersed only by endangered frugivores in the mata.caducifolia scale network, message=FALSE}
+mata.caducifolia_plants_1_noLC <- mata.caducifolia_plants_1_frugs %>%
+  filter(Frug_IUCN != "LC")
+
+mata.caducifolia_plants_1_noLC_counts <- mata.caducifolia_plants_1_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
+
+#only the single row occurrences tell me which plant species actually ONLY had endangered frugivores as their disperser
+length(mata.caducifolia_plants_1_noLC_counts$`n()`[which(mata.caducifolia_plants_1_noLC_counts$`n()` == 1)])
+
+```
+
+How many trees are only dispersed by 2 frugivores in the mata.caducifolia network? 
+
+```{r how many trees with a degree of 2 exist in the mata.caducifolia scale network}
 
 mata.caducifolia_plants_2 <- interaction_md.MC %>%
-  filter(Plant_degree == 2, .keep_all = TRUE)
+  filter(Plant_degree ==2, .keep_all = TRUE)
 
-# how many of those are dispersed only by endangered frugivores?
-# knock out the species of low endangerment risk
+length(unique(mata.caducifolia_plants_2$Plant_Species))
 
-mata.caducifolia_plants_2_noLC <- mata.caducifolia_plants_2 %>%
-  filter(Frug_IUCN != "LC") 
 
-# save the counts
+```
 
-mata.caducifolia_plants_2_noLC <- length(unique(mata.caducifolia_plants_2_noLC$Plant_Species))
-mata.caducifolia_plants_2 <- length(unique(mata.caducifolia_plants_2$Plant_Species))
+How many tree species with a degree of 2 are dispersed only by endangered frugivores in the mata.caducifolia network?
 
-######
-## Plant degree = 3
-#####
-# How many specialist trees are dispersed by only 3 frugivore in the mata.caducifolia?
+```{r how many trees with degree of 2 are only dispersed by endangered frugivores in the mata.caducifolia scale network, message=FALSE}
+
+mata.caducifolia_plants_2_frugIUCN <- mata.caducifolia_plants_2 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
+
+mata.caducifolia_plants_2_frugIUCN_noLC <- mata.caducifolia_plants_2_frugIUCN %>%
+  filter(Frug_IUCN != "LC")
+
+counts <- mata.caducifolia_plants_2_frugIUCN_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
+
+# again, going by row number, we are interested in the trees that have only two observations (rows) and of which both of those rows/observations are of interactions with endangered frugivores
+
+length(counts$`n()`[which(counts$`n()` == 2)])
+
+```
+
+How many trees are dispersed by only 3 frugivores in the mata.caducifolia network?
+
+```{r how many trees with degree of 3 in the mata.caducifolia scale network}
 
 mata.caducifolia_plants_3 <- interaction_md.MC %>%
   filter(Plant_degree == 3, .keep_all = TRUE)
 
-# how many of those are dispersed only by endangered frugivores?
-# knock out the species of low endangerment risk
+length(unique(mata.caducifolia_plants_3$Plant_Species))
 
-mata.caducifolia_plants_3_noLC <- mata.caducifolia_plants_3 %>%
-  filter(Frug_IUCN != "LC") 
+```
 
-# save the counts
+How many of the trees with a degree of 3 are dispersed only by endangered frugivores in the mata.caducifolia network?
 
-mata.caducifolia_plants_3_noLC <- length(unique(mata.caducifolia_plants_3_noLC$Plant_Species))
-mata.caducifolia_plants_3 <- length(unique(mata.caducifolia_plants_3$Plant_Species))
+```{r how many trees with degree of 3 only dispersed by endangered frugivores in the mata.caducifolia scale network, message=FALSE}
 
-######
-## Plant degree = 4
-#####
-# How many specialist trees are dispersed by only 4 frugivore in the mata.caducifolia?
+mata.caducifolia_plants_3_frugIUCN <- mata.caducifolia_plants_3 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
+
+mata.caducifolia_plants_3_noLC <- mata.caducifolia_plants_3_frugIUCN %>%
+  filter(Frug_IUCN != "LC")
+
+mata.caducifolia_plants_3_noLC_counts <- mata.caducifolia_plants_3_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
+
+length(mata.caducifolia_plants_3_noLC_counts$`n()`[which(mata.caducifolia_plants_3_noLC_counts$`n()` == 3)])
+
+```
+
+How many trees are dispersed by 4 frugivores in the mata.caducifolia network?
+
+```{r how many trees species have a degree of 4 in the mata.caducifolia scale network}
 
 mata.caducifolia_plants_4 <- interaction_md.MC %>%
   filter(Plant_degree == 4, .keep_all = TRUE)
 
-# how many of those are dispersed only by endangered frugivores?
-# knock out the species of low endangerment risk
+length(unique(mata.caducifolia_plants_4$Plant_Species))
 
-mata.caducifolia_plants_4_noLC <- mata.caducifolia_plants_4 %>%
-  filter(Frug_IUCN != "LC") 
+```
+How many of the trees with a degree of 4 are dispersed only by endangered frugivores in the mata.caducifolia network?
 
-# save the counts
+```{r how many trees with degree of 4 only dispersed by endangered frugs in the mata.caducifolia network, message=FALSE}
 
-mata.caducifolia_plants_4_noLC <- length(unique(mata.caducifolia_plants_4_noLC$Plant_Species))
-mata.caducifolia_plants_4 <- length(unique(mata.caducifolia_plants_4$Plant_Species))
+mata.caducifolia_plants_4_frugs <- mata.caducifolia_plants_4 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
 
-######
-## Plant degree = 5
-#####
+mata.caducifolia_plants_4_noLC <- mata.caducifolia_plants_4_frugs %>%
+  filter(Frug_IUCN != "LC")
 
-# How many specialist trees are dispersed by only 5 frugivore in the mata.caducifolia?
+mata.caducifolia_plants_4_noLC_counts <- mata.caducifolia_plants_4_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
+
+length(mata.caducifolia_plants_4_noLC_counts$`n()`[which(mata.caducifolia_plants_4_noLC_counts$`n()` == 4)])
+
+```
+
+How many tree species in the mata.caducifolia network have a degree of 5?
+
+```{r how many trees with degree of 5 in the mata.caducifolia network}
 
 mata.caducifolia_plants_5 <- interaction_md.MC %>%
   filter(Plant_degree == 5, .keep_all = TRUE)
 
-# how many of those are dispersed only by endangered frugivores?
-# knock out the species of low endangerment risk
+length(unique(mata.caducifolia_plants_5$Plant_Species))
 
-mata.caducifolia_plants_5_noLC <- mata.caducifolia_plants_5 %>%
-  filter(Frug_IUCN != "LC") 
+```
 
-# save the counts
+How many tree species with a degree of 5 are dispersed only by endangered frugivores in the mata.caducifolia network?
 
-mata.caducifolia_plants_5_noLC <- length(unique(mata.caducifolia_plants_5_noLC$Plant_Species))
-mata.caducifolia_plants_5 <- length(unique(mata.caducifolia_plants_5$Plant_Species))
+```{r how many trees with degree of 5 are only dispersed by endangered frugivores in the mata.caducifolia network, message=FALSE}
+
+mata.caducifolia_plants_5_frugs <- mata.caducifolia_plants_5 %>%
+  group_by(Plant_Species, Frug_IUCN) %>%
+  summarise(unique(Frugivore_Species))
+
+mata.caducifolia_plants_5_noLC <- mata.caducifolia_plants_5_frugs %>%
+  filter(Frug_IUCN != "LC")
+
+mata.caducifolia_plants_5_noLC_counts <- mata.caducifolia_plants_5_noLC %>%
+  group_by(Plant_Species) %>%
+  summarise(n())
+
+length(mata.caducifolia_plants_5_noLC_counts$`n()`[which(mata.caducifolia_plants_5_noLC_counts$`n()` == 5)])
 
 ```
 
 
-```{r make the table}
-# make blank data frame
-specialist_tree_table_biome <- data.frame(matrix(ncol = 5, nrow = 5))
+### Model testing associations between plant degree and frugivore endangerment levels
 
-# provide column names
-colnames(specialist_tree_table_biome) <- c('Region', 'Plant_degree', 'Plant_species_total_count', 'Plant_species_only_dispersed_by_endangered_frugivores', 'Proportion_plant_spp_only_dispersed_by_endangered_frugivores') 
+```{r neg binomial glm of specialist trees and higher risk frugivore associations, eval = FALSE}
 
-specialist_tree_table_biome$Region <- "Biome"
+# trying to get the plant species' degrees and frugivore endangerment status model to run
 
-specialist_tree_table_biome$Plant_degree <-seq(1:5)
+# if you are a specialist, are you more likely to interact with endangered frugivores?
 
-specialist_tree_table_biome$Plant_species_total_count <-c(biome_plants_1, biome_plants_2, biome_plants_3, biome_plants_4, biome_plants_5)
+# transform plant degree into binary data
+ ## doing this because other models will run but violate assumptions according to validation steps using DHARMa 
 
-specialist_tree_table_biome$Plant_species_only_dispersed_by_endangered_frugivores <-c(biome_plants_1_noLC, biome_plants_2_noLC, biome_plants_3_noLC, biome_plants_4_noLC, biome_plants_5_noLC)
+# create duplicate column to mutate into binary format
 
-specialist_tree_table_biome$Proportion_plant_spp_only_dispersed_by_endangered_frugivores<-c(specialist_tree_table_biome$Plant_species_only_dispersed_by_endangered_frugivores/specialist_tree_table_biome$Plant_species_total_count)
+biome_interaction_md$Plant_degree_binary <- biome_interaction_md$Plant_degree
 
-####
-# repeat per ecoregion
-####
+# mutate values of degree greater than 1 to 0, and degrees of 1 to 1
 
-# serra do mar
+biome_interaction_md <- biome_interaction_md %>%
+  mutate(Plant_degree_binary = ifelse(Plant_degree_binary > 1, 0, 1))
 
-# make blank data frame
-specialist_tree_table_serra.do.mar <- data.frame(matrix(ncol = 5, nrow = 5))
+# Do I only want one row per plant species (and now we have a record of whether or not a specialist plant (degree = 1) is interacting with an endangered frugivore or not since the mutation was performed on the interaction metadata)
 
-# provide column names
-colnames(specialist_tree_table_serra.do.mar) <- c('Region', 'Plant_degree', 'Plant_species_total_count', 'Plant_species_only_dispersed_by_endangered_frugivores', 'Proportion_plant_spp_only_dispersed_by_endangered_frugivores') 
+# ... does it even make sense to do this model?
 
-specialist_tree_table_serra.do.mar$Region <- "serra.do.mar"
-
-specialist_tree_table_serra.do.mar$Plant_degree <-seq(1:5)
-
-specialist_tree_table_serra.do.mar$Plant_species_total_count <-c(serra.do.mar_plants_1, serra.do.mar_plants_2, serra.do.mar_plants_3, serra.do.mar_plants_4, serra.do.mar_plants_5)
-
-specialist_tree_table_serra.do.mar$Plant_species_only_dispersed_by_endangered_frugivores <-c(serra.do.mar_plants_1_noLC, serra.do.mar_plants_2_noLC, serra.do.mar_plants_3_noLC, serra.do.mar_plants_4_noLC, serra.do.mar_plants_5_noLC)
-
-specialist_tree_table_serra.do.mar$Proportion_plant_spp_only_dispersed_by_endangered_frugivores<-c(specialist_tree_table_serra.do.mar$Plant_species_only_dispersed_by_endangered_frugivores/specialist_tree_table_serra.do.mar$Plant_species_total_count)
-
-###
-# cerrado
-###
-
-# make blank data frame
-specialist_tree_table_cerrado <- data.frame(matrix(ncol = 5, nrow = 5))
-
-# provide column names
-colnames(specialist_tree_table_cerrado) <- c('Region', 'Plant_degree', 'Plant_species_total_count', 'Plant_species_only_dispersed_by_endangered_frugivores', 'Proportion_plant_spp_only_dispersed_by_endangered_frugivores') 
-
-specialist_tree_table_cerrado$Region <- "cerrado"
-
-specialist_tree_table_cerrado$Plant_degree <-seq(1:5)
-
-specialist_tree_table_cerrado$Plant_species_total_count <-c(cerrado_plants_1, cerrado_plants_2, cerrado_plants_3, cerrado_plants_4, cerrado_plants_5)
-
-specialist_tree_table_cerrado$Plant_species_only_dispersed_by_endangered_frugivores <-c(cerrado_plants_1_noLC, cerrado_plants_2_noLC, cerrado_plants_3_noLC, cerrado_plants_4_noLC, cerrado_plants_5_noLC)
-
-specialist_tree_table_cerrado$Proportion_plant_spp_only_dispersed_by_endangered_frugivores<-c(specialist_tree_table_cerrado$Plant_species_only_dispersed_by_endangered_frugivores/specialist_tree_table_cerrado$Plant_species_total_count)
-
-##
-# Mata caducifolia
-##
-
-# make blank data frame
-specialist_tree_table_mata.caducifolia <- data.frame(matrix(ncol = 5, nrow = 5))
-
-# provide column names
-colnames(specialist_tree_table_mata.caducifolia) <- c('Region', 'Plant_degree', 'Plant_species_total_count', 'Plant_species_only_dispersed_by_endangered_frugivores', 'Proportion_plant_spp_only_dispersed_by_endangered_frugivores') 
-
-specialist_tree_table_mata.caducifolia$Region <- "mata.caducifolia"
-
-specialist_tree_table_mata.caducifolia$Plant_degree <-seq(1:5)
-
-specialist_tree_table_mata.caducifolia$Plant_species_total_count <-c(mata.caducifolia_plants_1, mata.caducifolia_plants_2, mata.caducifolia_plants_3, mata.caducifolia_plants_4, mata.caducifolia_plants_5)
-
-specialist_tree_table_mata.caducifolia$Plant_species_only_dispersed_by_endangered_frugivores <-c(mata.caducifolia_plants_1_noLC, mata.caducifolia_plants_2_noLC, mata.caducifolia_plants_3_noLC, mata.caducifolia_plants_4_noLC, mata.caducifolia_plants_5_noLC)
-
-specialist_tree_table_mata.caducifolia$Proportion_plant_spp_only_dispersed_by_endangered_frugivores<-c(specialist_tree_table_mata.caducifolia$Plant_species_only_dispersed_by_endangered_frugivores/specialist_tree_table_mata.caducifolia$Plant_species_total_count)
-
-###
-#bring them together
-###
-
-specialist_tree_table <- rbind(specialist_tree_table_biome, specialist_tree_table_serra.do.mar, specialist_tree_table_cerrado, specialist_tree_table_mata.caducifolia)
-
-###
-# display
-specialist_tree_table
-
-```
-Test. 
-  This is displayed in 'Table 1' in the manuscript - you can see that large portions of the specialist trees at the biome and ecoregion scales tend to have a reliance on endangered frugivores as dispersal partners. NaNs are where there were no frugivores in that category.  
-
-```{r neg binomial glm of specialist trees and higher risk frugivore associations}
-# these models tend to work better when the data range includes 0, so subtract 1 from all in response variable
-biome_interaction_md$Plant_degree_sub_one <- biome_interaction_md$Plant_degree-1 
-
-specialist_tree_mod <- glm.nb(Plant_degree_sub_one ~ Frug_risk_level, data = biome_interaction_md)
-
-# use glmmTBM to account for zero inflation - ziformula = ~1,
-
-summary(specialist_tree_mod)
-
-summary(specialist_tree_mod) # look at output
-
-aov.specialist_tree_mod= Anova(specialist_tree_mod) # simplify model results
-
-aov.specialist_tree_mod # display model results in simplified form
 
 ```
 
-```{r model validation analysis 2}
+```{r model validation analysis 4, eval=FALSE}
 
-sim.out.specialist_tree_mod <- simulateResiduals(fittedModel = specialist_tree_mod, plot = F)
-
-plot(sim.out.specialist_tree_mod) # plot residual plots
+sim.out.specialist_tree_mod <- simulateResiduals(fittedModel = specialist_tree_mod, plot = T)
 
 testDispersion(sim.out.specialist_tree_mod, plot = T) # print dispersion results
 
@@ -4121,7 +4206,7 @@ testZeroInflation(sim.out.specialist_tree_mod, plot = T) # print zero-inflation 
 
 ```
 
-  Not clear if data meets model assumptions.
+  HALLLLPPPPP
 
 # Session Info and Package Loading Messages
 
