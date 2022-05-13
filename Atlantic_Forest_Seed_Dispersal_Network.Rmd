@@ -4171,27 +4171,21 @@ length(mata.caducifolia_plants_5_noLC_counts$`n()`[which(mata.caducifolia_plants
 
 ### Model testing associations between plant degree and frugivore endangerment levels
 
-```{r neg binomial glm of specialist trees and higher risk frugivore associations, eval = FALSE}
+```{r model of specialist trees and higher risk frugivore associations}
 
-# trying to get the plant species' degrees and frugivore endangerment status model to run
+# if you are a specialist, are you more likely to interact with endangered frugivores? <-- is this a different question than what the below idea gets at though if we do subset the data to only consider trees with degree = 1 I think (did a sanity check with Kaysee and she agrees)
 
-# if you are a specialist, are you more likely to interact with endangered frugivores?
+# what about if I am asking is tree degree related to endangerment status 
+# ...
+# not getting anywhere
+# trying a different subsetting approach - what about taking the plants that have 5 or less dispersers, since that is what we looked at in the manuscript?
 
-# transform plant degree into binary data
- ## doing this because other models will run but violate assumptions according to validation steps using DHARMa 
+plants_5_or_less_dispersers <- biome_interaction_md %>%
+  filter(Plant_degree < 6, .keep_all = TRUE)
 
-# create duplicate column to mutate into binary format
+hist(plants_5_or_less_dispersers$Plant_degree) #judging from the histogram, gets rid of the big gaps in data... but I'm still going to have repeated measures of tree species interacting with more than 1 frugivore
 
-biome_interaction_md$Plant_degree_binary <- biome_interaction_md$Plant_degree
 
-# mutate values of degree greater than 1 to 0, and degrees of 1 to 1
-
-biome_interaction_md <- biome_interaction_md %>%
-  mutate(Plant_degree_binary = ifelse(Plant_degree_binary > 1, 0, 1))
-
-# Do I only want one row per plant species (and now we have a record of whether or not a specialist plant (degree = 1) is interacting with an endangered frugivore or not since the mutation was performed on the interaction metadata)
-
-# ... does it even make sense to do this model?
 
 
 ```
