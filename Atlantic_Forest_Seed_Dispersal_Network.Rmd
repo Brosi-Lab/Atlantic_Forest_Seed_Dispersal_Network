@@ -3616,6 +3616,7 @@ biome_plants_1_noLC_counts <- biome_plants_1_noLC %>%
 #only the single row occurrences tell me which plant species actually ONLY had endangered frugivores as their disperser
 length(biome_plants_1_noLC_counts$`n()`[which(biome_plants_1_noLC_counts$`n()` == 1)])
 # 156 specialist biome_biome_plants only dispersed by endangered animals
+# this is out of 285 total specialist plants, i.e. 156/285 = 54.7%
 ```
 
 How many trees are only dispersed by 2 frugivores in the biome network? 
@@ -4170,6 +4171,87 @@ length(mata.caducifolia_plants_5_noLC_counts$`n()`[which(mata.caducifolia_plants
 
 
 ### Model testing associations between plant degree and frugivore endangerment levels
+
+Berry approach 16 May 2022
+
+**we want to know if specialist trees (those visited only by one frugivore) are more likely to be visited by an endangered frugivore than chance alone would predict**
+
+* percentage of specialist plants visited by endangered frugivores is 156/285 = 54.7%
+* yet only ~17% of frugivores are endangered
+* Therese pointed out correctly that my vague thoughts in an email re: this test were not really coherent!
+* the structure of the model at first glance seems somewhat like a $\chi^2$ test but it actually isn't:
+    + you could set this up as plants on rows (degree == 1 / specialists vs. not) and frugivores on the columns (endangered vs. not) and you could run that model, but that is asking if the proportions of endangered frugivores are different among endangered vs. non-endangered plants; that is a different question (and one that would require a binomial-errors GLMM due to pseudoreplication among plant and frugivore species)
+    
+There are a couple of ways we could get at the question above:
+
+* generate binomial confidence intervals for the proportion of endangered frugivores visiting specialist trees (~54%); then compare to the proportion of endangered frugivores in the system (~17%)
+    + if the proportion visiting specialist trees is larger than the proportion in the system, and the latter is outside of the confidence intervals of the former, then we would say it is significantly higher proportion than we would expect by chance alone
+    + could also do this with generating confidence intervals for both estimates (not just prop. endangered frugivores visiting specialists, but also prop endangered frugivores overall)
+    + easy to do using the `binom` package for R, with the function `binom.confint`
+    + **DID THIS** and they don't even come close to overlapping
+* alternatively, we could take the same philosophical approach as above but conduct the analysis a little more formally ($p$-value and all) via a permutation test
+    + build a null distribution of expected values of proportion of endangered frugivores visiting specialist trees (based on the proportion of endangered frugivores overall); then compare the observed value to that distribution. If the observed value is greater than the top 5% of values (this is *a priori* a one-tailed test), then the proportion of endangered frugivores visiting specialist plants is significantly greater than we would expect by chance alone. The rank of the observed value in the null distribution is its $p$-value.
+    + this approach also gives the potential to explore other options (other null models). The other one that comes to mind is to not just base the null model on the *proportion* of endangered frugivores, but instead to *weight* the null model based on frugivore degree; frugivores with higher degree are more likely to be the one frugivore connecting with an endangered plant. Because we have previously shown in this analysis that endangered frugivores are more likely to have a higher degree, this is likely a more conservative test than the simpler null model above.
+    + for both, run 9,999 permutations to get a reasonable precision associated with the $p$-value
+
+```{r model specialist trees frugivore endangerment}
+
+# start by defining yes / no variables for tree specialists 
+# and endangered frugivores:
+
+# get focal data
+# specgendat = "specialist / generalist data"
+specgendat <- biome_interaction_md
+# create new variable called "specialists", set base value = 0
+specgendat$specialists = 0
+# for those plants that only interact with one frugivore, change value = 1
+specgendat$specialists[specgendat$Plant_degree==1] = 1
+
+# create new variable called "endangered" (frugivores), set base value = 1
+specgendat$endangered = 1
+# for those frugivores that are "LC" (least concern), change value = 0
+specgendat$endangered[specgendat$Frug_IUCN=="LC"] = 0
+
+#=====================
+
+# quick checks:
+# what is the proportion of endangered frugivores?
+frugs = specgendat %>% group_by(Frugivore_Species) %>% 
+  summarize(endangered = mean(endangered))
+prop.endangered = sum(frugs$endangered)/nrow(frugs)
+# 13.7% of frugivores endangered (44/321)
+
+# what is the proportion of specialist trees?
+specs = specgendat %>% group_by(Plant_Species) %>% 
+  summarize(specialists = mean(specialists)) 
+prop.spec = sum(specs$specialists)/nrow(specs)
+# 13.7% of trees are specialists (285/777)
+
+# what is proportion of specialist trees visited by endangered frugs?
+spec.ends = specgendat %>% filter(specialists == 1) %>% group_by(Plant_Species) %>% 
+  summarize(spec.ends = mean(endangered))
+prop.spec.ends = sum(spec.ends$spec.ends)/nrow(spec.ends)
+# 54.7% of specialist plants are visited by endangered frugivores (156/285)
+
+#=====================
+
+library(binom)
+# CIs for prop specialist trees visited by endangered frugivores:
+spec.end.confint = binom.confint(sum(spec.ends$spec.ends), nrow(spec.ends), 
+                                 method = "agresti")
+# CIs for prop of endangered frugivores:
+frug.end.confint = binom.confint(sum(frugs$endangered), nrow(frugs), 
+                                 method = "agresti")
+# rbind CI tables:
+spec.end.confint = rbind(spec.end.confint, frug.end.confint)
+spec.end.confint[,1] = c("specialists.endangered", "frugivores.endangered")
+
+# clear that CIs do not overlap: upper CI for frugivore endangerment is 17.9%;
+# lower CI for prop endangered frugivores interacting w/specialist plants is 48.9%
+
+```
+
+
 
 ```{r model of specialist trees and higher risk frugivore associations}
 
