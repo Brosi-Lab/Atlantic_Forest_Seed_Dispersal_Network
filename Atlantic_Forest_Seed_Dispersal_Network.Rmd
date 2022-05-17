@@ -4222,10 +4222,11 @@ prop.endangered = sum(frugs$endangered)/nrow(frugs)
 # 13.7% of frugivores endangered (44/321)
 
 # what is the proportion of specialist trees?
+# (not really all that relevant)
 specs = specgendat %>% group_by(Plant_Species) %>% 
   summarize(specialists = mean(specialists)) 
 prop.spec = sum(specs$specialists)/nrow(specs)
-# 13.7% of trees are specialists (285/777)
+# 36.7% of trees are specialists (285/777)
 
 # what is proportion of specialist trees visited by endangered frugs?
 spec.ends = specgendat %>% filter(specialists == 1) %>% group_by(Plant_Species) %>% 
