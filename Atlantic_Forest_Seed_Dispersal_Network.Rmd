@@ -4192,6 +4192,7 @@ There are a couple of ways we could get at the question above:
 * alternatively, we could take the same philosophical approach as above but conduct the analysis a little more formally ($p$-value and all) via a permutation test
     + build a null distribution of expected values of proportion of endangered frugivores visiting specialist trees (based on the proportion of endangered frugivores overall); then compare the observed value to that distribution. If the observed value is greater than the top 5% of values (this is *a priori* a one-tailed test), then the proportion of endangered frugivores visiting specialist plants is significantly greater than we would expect by chance alone. The rank of the observed value in the null distribution is its $p$-value.
     + this approach also gives the potential to explore other options (other null models). The other one that comes to mind is to not just base the null model on the *proportion* of endangered frugivores, but instead to *weight* the null model based on frugivore degree; frugivores with higher degree are more likely to be the one frugivore connecting with an endangered plant. Because we have previously shown in this analysis that endangered frugivores are more likely to have a higher degree, this is likely a more conservative test than the simpler null model above.
+    + in the code below, I took the latter approach (basing it on the number of which results in a more conservative test
     + for both, run 9,999 permutations to get a reasonable precision associated with the $p$-value
 
 ```{r model specialist trees frugivore endangerment}
@@ -4221,6 +4222,10 @@ frugs = specgendat %>% group_by(Frugivore_Species) %>%
 prop.endangered = sum(frugs$endangered)/nrow(frugs)
 # 13.7% of frugivores endangered (44/321)
 
+# proportion of interactions driven by endangered frugivores:
+prop.endang.int = sum(specgendat$endangered)/nrow(specgendat)
+# 17.2% of interactions are by endangered frugivores
+
 # what is the proportion of specialist trees?
 # (not really all that relevant)
 specs = specgendat %>% group_by(Plant_Species) %>% 
@@ -4235,6 +4240,7 @@ prop.spec.ends = sum(spec.ends$spec.ends)/nrow(spec.ends)
 # 54.7% of specialist plants are visited by endangered frugivores (156/285)
 
 #=====================
+# binomial confidence intervals
 
 library(binom)
 # CIs for prop specialist trees visited by endangered frugivores:
@@ -4252,7 +4258,41 @@ spec.end.confint[,1] = c("specialists.endangered", "frugivores.endangered")
 
 ```
 
+#### null models of specialist trees frugivore endangerment
 
+basic idea:
+
+* `for` loop with 9999? iterations
+* sample without replacement the set `specgendat$endangered` to the length of the set of specialist plants `sum(specgendat$specialists)` (= `r sum(specgendat$specialists)`)
+    + in other words, sampling the entire set of observed interactions, not the set of frugivores
+    + this is more conservative since we know that endangered frugivores trend toward having higher degrees (number of interaction partners) than  non-endangered
+    + this is reflected in the fact that `r prop.endang.int` of interactions are carried out by endangered frugivores, whereas `r prop.endangered` of frugivores are endangered 
+* calculate (and store) the proportion of endangered frugivores in that vector (sum of vector / length of vector)
+* find the rank of the observed value (`r prop.spec.ends`) within the set above; $p$-value is the inverse of the rank (1/rank); if in the top 5% of values the $p$-value will be < 0.05 and thus statistically significant
+    + this is a one-tailed test as we have the *a priori* hypothesis that we are seeing a *higher* number of interactions of specialist plants with endangered frugivores than we would expect by chance
+    + the precision of the $p$-value is driven by the number of permutations: 99 perms = precision of 2 digits (e.g. smallest possible $p$-val = 0.01); 999 = 3 digits or a minimum of 0.001; etc.
+
+```{r null model specialist trees frugivore endangerment}
+
+nreps = 9999
+
+# create vector to store results in
+results = rep(NA, nreps)
+
+for(i in 1:nreps){
+  temp = sample(specgendat$endangered, sum(specgendat$specialists))
+  results[i] = sum(temp)/length(temp)
+}
+
+# calculate p-value (reciprocal of rank of observed in set of obs. + simulated)
+pval = 1/rank(c(prop.spec.ends, results))[1]
+# display p-value
+paste("p =", (format(pval, scientific = F)))
+# graph
+# hist(results)
+```
+
+While as with any permutation test, results may vary from run to run, every time I tried I got the minimum possible $p$-value, i.e. $p = 0.0001$. This indicates that specialist plants are interacting much more with endangered frugivores than we would expect by chance, if endangered frugivores were visiting plants at random; the difference is strongly statistically significant.
 
 ```{r model of specialist trees and higher risk frugivore associations}
 
@@ -4272,6 +4312,8 @@ hist(plants_5_or_less_dispersers$Plant_degree) #judging from the histogram, gets
 
 
 ```
+
+
 
 ```{r model validation analysis 4, eval=FALSE}
 
