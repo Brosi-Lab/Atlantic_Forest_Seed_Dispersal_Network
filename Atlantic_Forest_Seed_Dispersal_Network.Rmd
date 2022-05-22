@@ -4178,8 +4178,7 @@ Berry approach 16 May 2022
 
 * percentage of specialist plants visited by endangered frugivores is 156/285 = 54.7%
 * yet only ~17% of frugivores are endangered
-* Therese pointed out correctly that my vague thoughts in an email re: this test were not really coherent!
-* the structure of the model at first glance seems somewhat like a $\chi^2$ test but it actually isn't:
+* Thinking through the model options:
     + you could set this up as plants on rows (degree == 1 / specialists vs. not) and frugivores on the columns (endangered vs. not) and you could run that model, but that is asking if the proportions of endangered frugivores are different among endangered vs. non-endangered plants; that is a different question (and one that would require a binomial-errors GLMM due to pseudoreplication among plant and frugivore species)
     
 There are a couple of ways we could get at the question above:
@@ -4294,38 +4293,6 @@ paste("p =", (format(pval, scientific = F)))
 
 While as with any permutation test, results may vary from run to run, every time I tried I got the minimum possible $p$-value, i.e. $p = 0.0001$. This indicates that specialist plants are interacting much more with endangered frugivores than we would expect by chance, if endangered frugivores were visiting plants at random; the difference is strongly statistically significant.
 
-```{r model of specialist trees and higher risk frugivore associations}
-
-# if you are a specialist, are you more likely to interact with endangered frugivores? <-- is this a different question than what the below idea gets at though if we do subset the data to only consider trees with degree = 1 I think (did a sanity check with Kaysee and she agrees)
-
-# what about if I am asking is tree degree related to endangerment status 
-# ...
-# not getting anywhere
-# trying a different subsetting approach - what about taking the plants that have 5 or less dispersers, since that is what we looked at in the manuscript?
-
-plants_5_or_less_dispersers <- biome_interaction_md %>%
-  filter(Plant_degree < 6, .keep_all = TRUE)
-
-hist(plants_5_or_less_dispersers$Plant_degree) #judging from the histogram, gets rid of the big gaps in data... but I'm still going to have repeated measures of tree species interacting with more than 1 frugivore
-
-
-
-
-```
-
-
-
-```{r model validation analysis 4, eval=FALSE}
-
-sim.out.specialist_tree_mod <- simulateResiduals(fittedModel = specialist_tree_mod, plot = T)
-
-testDispersion(sim.out.specialist_tree_mod, plot = T) # print dispersion results
-
-testZeroInflation(sim.out.specialist_tree_mod, plot = T) # print zero-inflation results
-
-```
-
-  HALLLLPPPPP
 
 # Session Info and Package Loading Messages
 
