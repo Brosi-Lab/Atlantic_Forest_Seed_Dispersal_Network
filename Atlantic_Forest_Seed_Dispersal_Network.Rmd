@@ -736,7 +736,7 @@ rm(temp, Frugivore_degree.CR, Frugivore_degree.SM, Frugivore_degree.MC, Plant_de
     + Using negative binomial to account for overdispersion
     + To meet model assumptions, we subtract 1 from all degree values so that the count data includes zeros and is able to be modeled with our neg binomial approach
     
-### Analysis 1: Data overview - looking at the degree data
+### data overview: looking at the degree data for lower and higher risk frugivores
 
 #### biome-scale - frugivore degree for lower vs higher risk species
 
@@ -963,13 +963,13 @@ rm(biome.deg.m1, sim.out.biome.deg.m1)
 __* Summary: The negative binomial model with the transformation of degree - 1 fits model assumptions.__
 
 
-### Analysis 1: biome-scale figure of frugivore degrees for higher and lower endangerment risk
+### Analysis 1: biome-scale analysis of frugivore degrees for higher and lower endangerment risk
 
-* This is a boxplot of frugivore network degree at the biome-scale, split into frugivores in the higher risk (NT, VU, EN, CR) and lower risk (LC) IUCN categories
-    + the mean values are added as black squares
-    + 95% confidence intervals (CIs) are shown as bars around means
+* Negative binomial model output included in the following plot of frugivore network degree at the biome-scale, split into frugivores in the higher risk (NT, VU, EN, CR) and lower risk (LC) IUCN categories
+    + the mean values are added as black triangles
+    + 95% confidence intervals (CIs) with 1000 bootstraps and shown as bars around means
 
-```{r analysis 1 get confidence intervals, cache=TRUE}
+```{r get confidence intervals of mean degree per risk level at biome scale for fig 2a, cache=TRUE}
 
 # Get plot data ready (compute 95% CIs)
 
@@ -1020,7 +1020,9 @@ biome_bootstrap.temp1[2,5] <- biome_bootstrap.LR[[5]]
 
 ```
 
-```{r make the plot for analysis 1, warning=FALSE}
+Above code computes bootstrapped 95% confidence intervals after 1000 iterations.
+
+```{r version 1 of fig 2a biome scale degree vs endangerment level, eval=FALSE, warning=FALSE}
 
 biome_deg.risk.level.plot <- biome_frug_md %>%
   
@@ -1064,23 +1066,63 @@ biome_deg.risk.level.plot # display plot
 
 # clean
 
-rm(biome_bootstrap.HR, biome_bootstrap.LR, biome_bootstrap.temp1)
+# rm(biome_bootstrap.HR, biome_bootstrap.LR, biome_bootstrap.temp1)
 
 ```
 
-This plot shows frugivore degree between high and low risk frugivores. Bars show 95% confidence intervals around the mean (which is shown as black point for each group), calculated from 1000 bootstrap iterations.
+Code for first version of fig 2a using jittered points to show frugivore degree data in each high and low risk categories at the whole biome scale.
+
+```{r version 2 fig 2a revised biome scale degree vs endangerment level as violin plot, warning=FALSE}
+
+biome_deg.risk.level.vplot <- biome_frug_md %>%
+  
+ggplot(aes(x = Frug_risk_level, y = Frugivore_degree, fill = Frug_risk_level, group = Frug_risk_level)) +
+  geom_violin(trim = FALSE, alpha = 0.80) + # use violin plot to show data distribution
+  
+  theme_bw() + labs(y="Trees dispersed", x = NULL) + # theme and add label
+  
+  theme(axis.text=element_text(colour="black", size = 8)) + # make axis text bigger and black
+  
+  theme(axis.title = element_text(size = 10)) + #make axis title bigger and bold
+  
+  scale_x_discrete(labels = c("Higher risk", "Lower risk")) + # add x labels
+  
+  scale_fill_manual(labels = c("Group mean", "Higher risk", "Lower risk"), 
+                      values = c("firebrick4", "goldenrod3")) + # specify colors manually
+  
+    geom_pointrange(data = biome_bootstrap.temp1, # add a point to show the bootstrapped mean and 95% confidence intervals
+                  mapping = aes(x = Frug_risk_level, 
+                                y = mean, ymax = upper.95, 
+                                ymin = lower.95), 
+                  color = "black", size = 0.75, shape = 16) +
+  
+  theme(legend.title=element_blank()) + # remove legend
+  
+  annotate(geom="text", size = 3.25, x = 1.5, y = 128, 
+           label = bquote(~italic(X^2)~'= 1.30,' ~italic(p)~ '= 0.25')) + # add model output
+  
+  ggtitle("Biome\n\nFrugivore diet breadth:\nhigh versus low endangerment status") +
+  
+  theme(plot.title = element_text(size = 10)) + # add an overall title 
+  
+  theme(plot.title=element_text(hjust = 0.5)) + # adjust where the title shows up
+  
+  theme(legend.position = "none") + # no legend
+  
+  labs(tag = "(a)") # add the alphabetical tag
 
 
+biome_deg.risk.level.vplot # display plot
 
+```
 
-
-
+This violin plot shows degree of frugivores in the higher risk (NT, VU, EN, CR) and lower risk (LC) IUCN categories across the whole Atlantic Forest biome. Bars show 95% CIs around the mean (which is shown as black triangle for each group), calculated from 1000 bootstrap iterations.
 
 ## Analysis 2: evaluating relationships between frugivore degree and population trends
 
-The steps in Analysis 2 are a repeat of Analysis 1 more or less, but here we are looking at frugivores belonging to growing versus shrinking global populations.
+The steps in this analysis are a repeat of the analysis above that compared frugivore degree at the biome scale between frugivores at higher versus lower risk of extinction. Here, however, we are looking at frugivores belonging to growing versus shrinking global populations as these population trends are early indicators of future endangerment/extinction risk.
 
-### Analysis 2 Data overview - looking at the degree data in the increasing and decreasing population groups
+### data overview: looking at the degree data in the increasing and decreasing population groups
 
 #### Biome-scale: network degree in the increasing population grouper and higher risk frugivore groups
 
@@ -1254,11 +1296,11 @@ When run with the frugivore degree values minus 1 (to allow for zeros in the dat
 
 ### Analysis 2: biome-scale figure showing degree values of frugivores in increasing and decreasing populations
 
-* This is a boxplot of frugivore network degree at the biome-scale, split into frugivores in the higher risk (NT, VU, EN, CR) and lower risk (LC) IUCN categories
-    + the mean values are added as black squares
-    + 95% CIs are bars around means
+* Negative binomial model output is included in this plot of frugivore network degree at the biome-scale, split into frugivores with increasing and decreasing global populations.
+    + the mean values are added as black triangles
+    + 95% CIs are bars around means computed from 1000 bootstraps
 
-```{r analysis 2 get CIs for graphing, cache=TRUE}
+```{r bootstrap CIs around mean degree of frugivores in each population category, cache=TRUE}
 
 # frugivores with increasing population trends = INC, those with decreasing pops = DEC
 
@@ -1307,8 +1349,8 @@ biome_bootstrap.temp2[2,4] <- biome_bootstrap.INC[[1]]
 biome_bootstrap.temp2[2,5] <- biome_bootstrap.INC[[5]]
 
 ```
-
-```{r make the plot for analysis 2, warning=FALSE}
+Above code computes bootstrapped 95% confidence intervals around mean degree of frugivores in increasing vs decreasing populations(1000 iterations).
+```{r version 1 fig 2b degree vs pop trend, warning=FALSE, eval = FALSE}
 
 biome_deg.pop.trend.plot <- biome_frug_popsubset %>%
   
@@ -1332,7 +1374,7 @@ ggplot(aes(x = Frug_Population_Trend, y = Frugivore_degree,
   scale_x_discrete(labels = c("Decreasing", "Increasing")) +
   
   scale_colour_manual(labels = c("Group mean", "Decreasing", "Increasing"), 
-                      values = c("black","coral1", "deepskyblue3")) +
+                      values = c("coral1", "deepskyblue3")) +
   
   theme(legend.title=element_blank()) + # no legend title
   
@@ -1357,13 +1399,55 @@ legend.pop.trend <- as_ggplot(legend.pop.trend) # convert to ggplot
 
 # clean
 
-rm(biome_bootstrap.DEC, biome_bootstrap.INC, biome_frug_popsubset, biome_bootstrap.temp2)
+# rm(biome_bootstrap.DEC, biome_bootstrap.INC, biome_frug_popsubset, biome_bootstrap.temp2)
 
 ```
 
-This plot shows frugivore degree frugivores belonging to populations that are shrinking globally and those that are currently growing. Bars show 95% CIs around the mean (which is shown as black point for each group), calculated from 1000 bootstrap iterations.
+Code for first version of fig 2a using jittered points to show frugivore degree data in each increasing and decreasing population category across the Atlantic Forest biome.
 
-## Figures for both analysis 1 and 2 illustrating frugivore degrees in high vs low extinction risk groups and also in decreasing vs increasing population groups
+```{r version 2 fig 2b revised biome scale degree vs population growth trends as violin plot, warning=FALSE}
+
+biome_deg.pop.trend.vplot <- biome_frug_popsubset %>%
+  ggplot(aes(x = Frug_Population_Trend, y = Frugivore_degree, 
+           fill = Frug_Population_Trend, group = Frug_Population_Trend)) + 
+  
+  geom_violin(trim = FALSE, alpha = 0.80) + # use violin plot to show data distribution
+  
+  geom_pointrange(data = biome_bootstrap.temp2, 
+                  mapping = aes(x = Frug_Population_Trend, y = mean, 
+                                ymax = upper.95, ymin = lower.95), 
+                                color = "black", size = 0.75, shape = 16) + # include mean and 95% CIs
+  theme_bw() + labs(y="Trees dispersed", x = NULL) +
+  
+  theme(axis.text=element_text(colour="black", size = 8)) +
+  
+  theme(axis.title = element_text(size = 10)) + 
+  
+  scale_x_discrete(labels = c("Decreasing", "Increasing")) +
+  
+  scale_colour_manual(labels = c("Group mean", "Decreasing", "Increasing"), 
+                      values = c("coral1", "deepskyblue4")) +
+  
+  theme(legend.title=element_blank()) + # no legend title
+  
+  theme(legend.position = "none") + # put legend on bottom
+  
+  annotate(geom="text", size = 3.25, x = 1.5, y = 128, 
+           label = bquote(~italic(X^2)~'= 3.12,'~italic(p)~ '= 0.08')) + # add model results
+  
+  ggtitle("Biome\n\nFrugivore diet breadth:\ndecreasing versus increasing populations") +
+  
+  theme(plot.title = element_text(size = 10)) +
+  
+  theme(plot.title=element_text(hjust = 0.5)) +
+  
+  labs(tag = "(b)")
+
+```
+
+This violin plot shows frugivore degree frugivores belonging to populations that are shrinking globally and those that are currently growing. Bars show 95% CIs around the mean (which is shown as black triangle for each group), calculated from 1000 bootstrap iterations.
+
+## Ecoregion scale ploting of frugivore degrees in high vs low extinction risk groups and also in decreasing vs increasing population groups
 
 There is insufficient data in many of these categories at the ecoregion scale (see the data overview section of ecoregions above in Analysis 1 and Analysis 2 prep) to repeat the models that were done at the biome scale analyzing differences in degree between frugivores that belong to either higher or lower extinction risk categories (Analysis 1 above) or decreasing or increasing populations (Analysis 2 above). Although we can't run sufficiently robust analyses, we can at least gain an understanding of trends by looking at the data.
 
@@ -1406,13 +1490,14 @@ names(eco_means_risk)[3] <- "mean" # name the column
 # make the plot
 
 ecoregion_deg.risk.plot <- eco_temp %>%
-ggplot(aes(x = ecoregion, y = Frugivore_degree, color = Frug_risk_level)) + 
-  geom_point(size = 2, shape = 16, alpha = 0.7, # display data for each frug individually
-             position=position_jitterdodge(jitter.width = 0.15)) + 
+ggplot(aes(x = ecoregion, y = Frugivore_degree, fill = Frug_risk_level)) + 
+  geom_violin(trim = FALSE, alpha = 0.80) +
+  #geom_point(size = 2, shape = 16, alpha = 0.7, # display data for each frug individually
+   #          position=position_jitterdodge(jitter.width = 0.15)) + 
   geom_point(data = eco_means_risk, # use the temp df of means per ecoregion per category here
                   mapping = aes(x = ecoregion, y = mean, 
-                                group = Frug_risk_level, color = "black"), 
-             position = position_jitterdodge(jitter.width = 0.1), size = 1.4, shape = 17) + 
+                                fill = Frug_risk_level), 
+             position = position_dodge(width = 0.9), color = "black", size = 2, shape = 16) + 
   
   theme_bw() + labs(y="Trees dispersed", x = NULL) +
   
@@ -1422,8 +1507,8 @@ ggplot(aes(x = ecoregion, y = Frugivore_degree, color = Frug_risk_level)) +
   
   scale_x_discrete(labels = c("Cerrado", "Mata caducifolia", "Serra do Mar")) +
   
-  scale_colour_manual(labels = c("Group mean", "Higher risk", "Lower risk"), 
-                      values = c("black","darkred", "darkgoldenrod1")) +
+  scale_fill_manual(labels = c("Group mean", "Higher risk", "Lower risk"), 
+                      values = c("firebrick4", "goldenrod3")) +
   
   theme(legend.title = element_blank()) +
   
@@ -1452,43 +1537,34 @@ ecoregion_pop_subset <- eco_temp %>%
 
 # make the plot
 
-ecoregion_deg.pop.plot <- ecoregion_pop_subset %>% ggplot(aes(x = ecoregion, 
-                                                  y = Frugivore_degree, color = Frug_Population_Trend)) + 
+ecoregion_deg.pop.plot <- ecoregion_pop_subset %>% 
+  ggplot(aes(x = ecoregion, y = Frugivore_degree, fill = Frug_Population_Trend)) + 
   
-  geom_point(size = 2, shape = 16, alpha = 0.7, # display data for each frug individually
-             position=position_jitterdodge(jitter.width = 0.15)) + 
-  
+  geom_violin(trim = FALSE, alpha = 0.80) +
+  # geom_point(size = 2, shape = 16, alpha = 0.7, # display data for each frug individually
+            # position=position_jitterdodge(jitter.width = 0.15)) + 
   geom_point(data = eco_means_pops, # use the temp df of means per ecoregion per category here
-                  mapping = aes(x = ecoregion, y = mean, 
-                                group = Frug_Population_Trend, color = "black"), 
-             position = position_jitterdodge(jitter.width = 0.1), size = 1.4, shape = 17) + 
+             mapping = aes(x = ecoregion, y = mean, group = Frug_Population_Trend), 
+             color = "black", position = position_dodge(width = 0.9), size = 2, 
+             shape = 16) +
   
   theme_bw() + labs(y="Trees dispersed", x = NULL) +
   
   theme(axis.text=element_text(colour="black", size = 8)) +
   
   theme(axis.title = element_text(size = 10)) + 
-  
   scale_x_discrete(labels = c("Cerrado", "Mata Caducifolia", "Serra do Mar")) +
   
   scale_colour_manual(labels = c("Group mean", "Decreasing", "Increasing"), 
-                      values = c("black","coral1", "deepskyblue3")) +
-  
+                      
+                      values = c("coral1", "deepskyblue3")) +
   theme(legend.title = element_blank()) +
   
   theme(legend.position = "none") + # no legend
   
   guides(color = guide_legend(override.aes = list(shape = c(17, 16, 16)))) +
-  
-  ggtitle("Ecoregions\n\nFrugivore diet breadth:\ndecreasing versus increasing populations") +
-  
-  theme(plot.title = element_text(size = 10)) +
-  
-  theme(plot.title=element_text(hjust = 0.5)) +
-  
-  labs(tag = "(d)")
-
-
+  ggtitle("Ecoregions\n\nFrugivore diet breadth:\ndecreasing versus increasing populations") + theme(plot.title = element_text(size = 10)) +
+  theme(plot.title=element_text(hjust = 0.5)) + labs(tag = "(d)")
 
 legend_pop.trend <- get_legend(ecoregion_deg.pop.plot, position = "bottom") # extract legend to add to panel later
 
@@ -1500,18 +1576,17 @@ ecoregion_deg.pop.plot
 
 ```{r combine all degree comparison figures, warning=FALSE}
 
-save <- ggarrange(biome_deg.risk.level.plot, biome_deg.pop.trend.plot, ecoregion_deg.risk.plot, ecoregion_deg.pop.plot, legend_risk, legend_pop.trend, ncol = 2, nrow = 3, heights = c(8,8,1))
+save <- ggarrange(biome_deg.risk.level.vplot, biome_deg.pop.trend.vplot, ecoregion_deg.risk.plot, ecoregion_deg.pop.plot, ncol = 2, nrow = 2, heights = c(8,8,1))
 
 save # look at it
 
 # save it 
-#ggsave(save, file = "plots/degree_comparison_panel.pdf", units = "in", width = 6.75, height = 8, dpi = 400)
+#ggsave(save, file = "plots/revised_degree_comparison_panel_vplots.pdf", units = "in", width = 6.75, height = 8, dpi = 400)
 
 # save as png to put in manuscript
-#ggsave(save, file = "plots/degree_comparison_panel.png", units = "in", width = 6.75, height = 8, dpi = 400)
-
-
+#ggsave(save, file = "plots/revised_degree_comparison_panel_vplots.png", units = "in", width = 6.75, height = 8, dpi = 400)
 ```
+
 Panel figure for manuscript. Shows general trend of decreasing population sizes and endangerment status both being associated with higher frugivore degree compared to frugivore species that are doing better int he face of anthropogenic pressures. 
 
 
