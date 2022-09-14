@@ -969,7 +969,7 @@ __* Summary: The negative binomial model with the transformation of degree - 1 f
     + the mean values are added as black triangles
     + 95% confidence intervals (CIs) with 1000 bootstraps and shown as bars around means
 
-```{r get confidence intervals of mean degree per risk level at biome scale for fig 2a, cache=TRUE}
+```{r get confidence intervals of mean degree per risk level at biome scale for fig 2a}
 
 # Get plot data ready (compute 95% CIs)
 
@@ -1110,9 +1110,6 @@ ggplot(aes(x = Frug_risk_level, y = Frugivore_degree, fill = Frug_risk_level, gr
   theme(legend.position = "none") + # no legend
   
   labs(tag = "(a)") # add the alphabetical tag
-
-
-biome_deg.risk.level.vplot # display plot
 
 ```
 
@@ -1443,6 +1440,7 @@ biome_deg.pop.trend.vplot <- biome_frug_popsubset %>%
   
   labs(tag = "(b)")
 
+
 ```
 
 This violin plot shows frugivore degree frugivores belonging to populations that are shrinking globally and those that are currently growing. Bars show 95% CIs around the mean (which is shown as black triangle for each group), calculated from 1000 bootstrap iterations.
@@ -1569,8 +1567,6 @@ ecoregion_deg.pop.plot <- ecoregion_pop_subset %>%
 legend_pop.trend <- get_legend(ecoregion_deg.pop.plot, position = "bottom") # extract legend to add to panel later
 
 legend_pop.trend <- as_ggplot(legend_pop.trend) # convert legend to ggplot for easy use later
-
-ecoregion_deg.pop.plot
 
 ```
 
