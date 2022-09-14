@@ -1077,7 +1077,7 @@ Code for first version of fig 2a using jittered points to show frugivore degree 
 biome_deg.risk.level.vplot <- biome_frug_md %>%
   
 ggplot(aes(x = Frug_risk_level, y = Frugivore_degree, fill = Frug_risk_level, group = Frug_risk_level)) +
-  geom_violin(trim = FALSE, alpha = 0.80) + # use violin plot to show data distribution
+  geom_violin(trim = T, alpha = 0.80) + # use violin plot to show data distribution
   
   theme_bw() + labs(y="Trees dispersed", x = NULL) + # theme and add label
   
@@ -1411,7 +1411,7 @@ biome_deg.pop.trend.vplot <- biome_frug_popsubset %>%
   ggplot(aes(x = Frug_Population_Trend, y = Frugivore_degree, 
            fill = Frug_Population_Trend, group = Frug_Population_Trend)) + 
   
-  geom_violin(trim = FALSE, alpha = 0.80) + # use violin plot to show data distribution
+  geom_violin(trim = T, alpha = 0.80) + # use violin plot to show data distribution
   
   geom_pointrange(data = biome_bootstrap.temp2, 
                   mapping = aes(x = Frug_Population_Trend, y = mean, 
@@ -1491,7 +1491,7 @@ names(eco_means_risk)[3] <- "mean" # name the column
 
 ecoregion_deg.risk.plot <- eco_temp %>%
 ggplot(aes(x = ecoregion, y = Frugivore_degree, fill = Frug_risk_level)) + 
-  geom_violin(trim = FALSE, alpha = 0.80) +
+  geom_violin(trim = TRUE, alpha = 0.80) +
   #geom_point(size = 2, shape = 16, alpha = 0.7, # display data for each frug individually
    #          position=position_jitterdodge(jitter.width = 0.15)) + 
   geom_point(data = eco_means_risk, # use the temp df of means per ecoregion per category here
@@ -1540,7 +1540,7 @@ ecoregion_pop_subset <- eco_temp %>%
 ecoregion_deg.pop.plot <- ecoregion_pop_subset %>% 
   ggplot(aes(x = ecoregion, y = Frugivore_degree, fill = Frug_Population_Trend)) + 
   
-  geom_violin(trim = FALSE, alpha = 0.80) +
+  geom_violin(trim = T, alpha = 0.80) +
   # geom_point(size = 2, shape = 16, alpha = 0.7, # display data for each frug individually
             # position=position_jitterdodge(jitter.width = 0.15)) + 
   geom_point(data = eco_means_pops, # use the temp df of means per ecoregion per category here
